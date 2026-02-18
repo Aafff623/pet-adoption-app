@@ -15,7 +15,7 @@ import type { ChatMessage, Conversation } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { formatTime } from '../lib/utils/date';
 import { pickReply } from '../lib/utils/autoReply';
-import { generateAgentReply } from '../lib/api/llm';
+import { generateAgentReply, getLlmDebugInfo } from '../lib/api/llm';
 import { shouldAllowAI } from '../lib/utils/aiGuard';
 
 const ChatDetail: React.FC = () => {
@@ -151,6 +151,10 @@ const ChatDetail: React.FC = () => {
                   content: m.content,
                 }));
                 const aiReply = await generateAgentReply(agentType, text, history);
+                if (aiReply === null) {
+                  const debug = getLlmDebugInfo();
+                  console.warn('[PetConnect AI] 回复失败，便于排查:', debug);
+                }
                 reply = aiReply ?? '抱歉，我这边有点卡，稍后再试～';
                 if (aiReply) lastAiReplyTimeRef.current = Date.now();
               }

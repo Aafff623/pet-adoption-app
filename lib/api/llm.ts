@@ -17,6 +17,30 @@ function getProvider(): LlmProvider {
 }
 
 /**
+ * 调试用：返回当前 provider 及是否已配置 API Key（不暴露 key 值）。
+ * 当 AI 回复失败时可在控制台调用，便于排查「无 key」与「API 失败」。
+ */
+export function getLlmDebugInfo(): { provider: string; hasKey: boolean } {
+  const provider = getProvider();
+  switch (provider) {
+    case 'doubao': {
+      const key = (import.meta.env.VITE_DOUBAO_API_KEY as string)?.trim?.();
+      const modelId = (import.meta.env.VITE_DOUBAO_MODEL_ID as string)?.trim?.();
+      return { provider: 'doubao', hasKey: !!(key && modelId) };
+    }
+    case 'gemini': {
+      const key = (import.meta.env.VITE_GEMINI_API_KEY as string)?.trim?.();
+      return { provider: 'gemini', hasKey: !!key };
+    }
+    case 'deepseek':
+    default: {
+      const key = (import.meta.env.VITE_DEEPSEEK_API_KEY as string)?.trim?.();
+      return { provider: 'deepseek', hasKey: !!key };
+    }
+  }
+}
+
+/**
  * 根据当前配置的 provider 调用对应模型生成智能体回复。
  * 无 key 或 API 失败时返回 null，调用方应降级为词库回复。
  */

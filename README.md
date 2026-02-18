@@ -191,7 +191,9 @@ PetConnect 是纯静态前端应用，可一键部署到任意静态托管平台
 1. 将仓库连接到 Vercel 或 Netlify
 2. 设置构建命令：`npm run build`
 3. 设置输出目录：`dist`
-4. 在平台的环境变量面板中配置 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY`
+4. 在平台的环境变量面板中配置：
+   - `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`（必填）
+   - AI 智能体相关：`VITE_LLM_PROVIDER` 及对应 provider 的 API Key（见上方环境变量表），否则 AI 回复会显示「抱歉，我这边有点卡，稍后再试～」
 
 > ⚠️ 注意：以 `VITE_` 为前缀的变量会被 Vite 在构建时注入到客户端代码中，请勿在此前缀下存放敏感密钥。
 
