@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
-import type { Conversation, ChatMessage, TrashedGroup } from '../../types';
+import type { Conversation, ChatMessage, TrashedGroup, AgentType } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { AI_AGENTS } from '../config/aiAgents';
 
 const TRASH_RETENTION_DAYS = 3;
 
@@ -13,6 +14,7 @@ const mapRowToConversation = (row: Record<string, unknown>): Conversation => ({
   lastMessageTime: row.last_message_time as string,
   unreadCount: row.unread_count as number,
   isSystem: row.is_system as boolean,
+  agentType: (row.agent_type as AgentType | null) ?? undefined,
   createdAt: row.created_at as string,
 });
 
@@ -136,6 +138,41 @@ export const getOrCreateSystemConversation = async (userId: string): Promise<str
     .single();
 
   if (createError || !created) throw new Error(createError?.message ?? '创建系统会话失败');
+  return created.id as string;
+};
+
+export const getOrCreateAIConversation = async (
+  userId: string,
+  agentType: AgentType
+): Promise<string> => {
+  const config = AI_AGENTS[agentType];
+  if (!config) throw new Error('未知的 AI 智能体类型');
+
+  const { data: existing, error: findError } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('is_system', true)
+    .eq('agent_type', agentType)
+    .maybeSingle();
+
+  if (!findError && existing) return existing.id as string;
+
+  const { data: created, error: createError } = await supabase
+    .from('conversations')
+    .insert({
+      user_id: userId,
+      other_user_name: config.name,
+      other_user_avatar: '',
+      last_message: '',
+      unread_count: 0,
+      is_system: true,
+      agent_type: agentType,
+    })
+    .select('id')
+    .single();
+
+  if (createError || !created) throw new Error(createError?.message ?? '创建 AI 会话失败');
   return created.id as string;
 };
 

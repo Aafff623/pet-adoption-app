@@ -102,6 +102,8 @@ export interface Verification {
 // ============================================================
 // 会话类型
 // ============================================================
+export type AgentType = 'pet_expert' | 'emotional_counselor';
+
 export interface Conversation {
   id: string;
   userId: string;
@@ -111,6 +113,7 @@ export interface Conversation {
   lastMessageTime: string;
   unreadCount: number;
   isSystem: boolean;
+  agentType?: AgentType | null;
   createdAt: string;
 }
 

@@ -15,6 +15,8 @@ import type { ChatMessage, Conversation } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { formatTime } from '../lib/utils/date';
 import { pickReply } from '../lib/utils/autoReply';
+import { generateAgentReply } from '../lib/api/llm';
+import { shouldAllowAI } from '../lib/utils/aiGuard';
 
 const ChatDetail: React.FC = () => {
   const { showToast } = useToast();
@@ -33,6 +35,7 @@ const ChatDetail: React.FC = () => {
   const [clearing, setClearing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const lastAiReplyTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -126,11 +129,34 @@ const ChatDetail: React.FC = () => {
         return [...prev, sent];
       });
 
-      if (!isSystemConv) {
-        const delayMs = 2000 + Math.random() * 3000;
+      const agentType = conversation?.agentType;
+      const isAIConv = agentType === 'pet_expert' || agentType === 'emotional_counselor';
+
+      if (isAIConv || !isSystemConv) {
+        const delayMs = isAIConv ? 800 + Math.random() * 1200 : 2000 + Math.random() * 3000;
         setTimeout(async () => {
           try {
-            const reply = pickReply(text);
+            let reply: string;
+            if (isAIConv && agentType) {
+              const recentUserContents = [
+                ...chatMessages.filter(m => m.isSelf).map(m => m.content),
+                text,
+              ].slice(-3);
+              const guard = shouldAllowAI(text, lastAiReplyTimeRef.current, recentUserContents);
+              if (!guard.allow && guard.fallback) {
+                reply = guard.fallback;
+              } else {
+                const history = chatMessages.slice(-20).map(m => ({
+                  role: m.isSelf ? ('user' as const) : ('model' as const),
+                  content: m.content,
+                }));
+                const aiReply = await generateAgentReply(agentType, text, history);
+                reply = aiReply ?? '抱歉，我这边有点卡，稍后再试～';
+                if (aiReply) lastAiReplyTimeRef.current = Date.now();
+              }
+            } else {
+              reply = pickReply(text);
+            }
             const replyMsg = await insertSystemReply(convId, reply);
             setChatMessages(prev => {
               const exists = prev.some(m => m.id === replyMsg.id);

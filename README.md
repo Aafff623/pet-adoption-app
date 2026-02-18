@@ -86,7 +86,7 @@ cp .env.local.example .env.local
 ```env
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-GEMINI_API_KEY=your_gemini_api_key   # 可选
+VITE_GEMINI_API_KEY=your_gemini_api_key   # 可选，AI 智能体功能
 ```
 
 > 详细说明见 [环境变量](#-环境变量) 章节。
@@ -124,7 +124,11 @@ npm run dev
 | --- | :---: | --- | --- |
 | `VITE_SUPABASE_URL` | ✅ | Supabase 项目 URL | Dashboard → Settings → API |
 | `VITE_SUPABASE_ANON_KEY` | ✅ | Supabase 公开密钥 | Dashboard → Settings → API |
-| `GEMINI_API_KEY` | ❌ | Google Gemini API 密钥（AI 能力） | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `VITE_LLM_PROVIDER` | ❌ | AI 模型：`deepseek` / `doubao` / `gemini`，默认 `deepseek` | - |
+| `VITE_DEEPSEEK_API_KEY` | deepseek 时 | DeepSeek API 密钥 | [platform.deepseek.com](https://platform.deepseek.com) |
+| `VITE_DOUBAO_API_KEY` | doubao 时 | 豆包 API 密钥 | [火山方舟控制台](https://console.volcengine.com/ark) |
+| `VITE_DOUBAO_MODEL_ID` | doubao 时 | 豆包模型 endpoint ID | 方舟控制台部署后获取 |
+| `VITE_GEMINI_API_KEY` | gemini 时 | Google Gemini API 密钥 | [Google AI Studio](https://aistudio.google.com/apikey) |
 
 完整示例见 [`.env.local.example`](.env.local.example)。
 

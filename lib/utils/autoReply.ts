@@ -46,26 +46,85 @@ const DIALOGUE_DB: { keywords: string[]; replies: string[] }[] = [
       '收到～那我们保持联系～',
       '好的，期待与您进一步沟通～',
     ],
+    matchWhenShortOnly: true,
+  },
+  {
+    keywords: ['费用', '多少钱', '押金', '领养费', '价格', '收费'],
+    replies: [
+      '详情页有标注的，领养费主要是覆盖疫苗和绝育这些成本～',
+      '费用在页面写着呢，没有额外隐藏收费哈～',
+      '领养费不高，主要是为了筛选真心想养的家庭～',
+    ],
+  },
+  {
+    keywords: ['性格', '乖不乖', '咬人', '掉毛', '叫', '温顺', '活泼'],
+    replies: [
+      'TA 性格挺好的，详情页有写，见面时您也能感受一下～',
+      '掉毛的话猫狗多少都有，日常梳一梳就好～',
+      '不会乱咬人的，我们养这么久都挺乖的～',
+    ],
+  },
+  {
+    keywords: ['条件', '要求', '住房', '独居', '租房', '有房'],
+    replies: [
+      '没有硬性要求，主要是看您有没有时间和责任心～',
+      '租房也可以的，只要房东允许养宠物～',
+      '我们更看重您对 TA 的用心，其他都好商量～',
+    ],
+  },
+  {
+    keywords: ['多久', '还没', '什么时候', '几天', '等', '催'],
+    replies: [
+      '快了快了，我们这边也在抓紧～',
+      '不好意思让您久等，马上就有结果～',
+      '再等等哈，一有消息我第一时间告诉您～',
+    ],
+  },
+  {
+    keywords: ['不合适', '再考虑', '算了', '不领养了'],
+    replies: [
+      '没事的，领养是大事，考虑清楚最重要～',
+      '理解～以后有需要随时联系～',
+      '好的，祝您顺利找到合适的伙伴～',
+    ],
+  },
+  {
+    keywords: ['再见', '祝好', '拜拜', '88'],
+    replies: [
+      '再见～有需要随时找我～',
+      '拜拜，祝您一切顺利～',
+      '好的，保持联系～',
+    ],
   },
 ];
 
 const DEFAULT_REPLIES = [
-  '收到您的消息了～稍后回复您～',
-  '好的，我看看具体情况再回复您～',
-  '感谢您的咨询，我们会尽快处理～',
-  '您的消息已收到，请稍候～',
+  '收到～稍后回复您哈～',
+  '好的，我看看再回您～',
+  '嗯嗯，记下了～',
+  '收到消息了，一会儿回～',
+  '好的好的～',
+  '稍等哈，我处理一下～',
+  '看到了，待会跟您说～',
+  '嗯，收到～',
+  '好的，稍候回复～',
+  '记下了，一会儿联系您～',
 ];
 
 function randomPick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+const SHORT_MESSAGE_MAX_LEN = 6;
+
 export function pickReply(userMessage: string): string {
   const trimmed = userMessage.trim().toLowerCase();
   if (!trimmed) return randomPick(DEFAULT_REPLIES);
 
   for (const group of DIALOGUE_DB) {
-    const matched = group.keywords.some(kw => trimmed.includes(kw.toLowerCase()));
+    const keywordMatched = group.keywords.some(kw => trimmed.includes(kw.toLowerCase()));
+    const shortOnly = 'matchWhenShortOnly' in group && group.matchWhenShortOnly;
+    const matched = keywordMatched && (!shortOnly || trimmed.length <= SHORT_MESSAGE_MAX_LEN);
     if (matched) {
       return randomPick(group.replies);
     }

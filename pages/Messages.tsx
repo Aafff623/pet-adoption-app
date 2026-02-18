@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { fetchConversations, deleteConversation } from '../lib/api/messages';
+import { fetchConversations, deleteConversation, getOrCreateAIConversation } from '../lib/api/messages';
 import type { Conversation } from '../types';
 import { formatRelativeTime } from '../lib/utils/date';
 
@@ -18,6 +18,7 @@ const Messages: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -161,6 +162,46 @@ const Messages: React.FC = () => {
           </div>
         )}
       </header>
+
+      {/* AI 智能体入口 */}
+      <div className="px-6 mb-4 shrink-0">
+        <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-3">AI 智能体</p>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { id: 'pet_expert' as const, name: '宠物专家', icon: 'pets', color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400', desc: '领养与养宠咨询' },
+            { id: 'emotional_counselor' as const, name: '情感顾问', icon: 'favorite', color: 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400', desc: '领养心理支持' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={async () => {
+                if (!user || aiLoading) return;
+                setAiLoading(item.id);
+                try {
+                  const convId = await getOrCreateAIConversation(user.id, item.id);
+                  navigate(`/chat/${convId}`);
+                } catch {
+                  showToast('发起 AI 会话失败，请重试');
+                } finally {
+                  setAiLoading(null);
+                }
+              }}
+              disabled={!!aiLoading}
+              className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all text-left disabled:opacity-60 shadow-sm"
+            >
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${item.color}`}>
+                <span className="material-icons-round text-2xl">{item.icon}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">{item.name}</p>
+                <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                  {aiLoading === item.id ? '连接中...' : item.desc}
+                </p>
+              </div>
+              <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-lg shrink-0">chevron_right</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* 标签页 */}
       <div className="px-6 mb-4 shrink-0">
@@ -327,6 +368,45 @@ const Messages: React.FC = () => {
             </div>
 
             <div className="overflow-y-auto flex-1 px-5 py-4">
+              {/* AI 助手 */}
+              <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-3">AI 助手</p>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {[
+                  { id: 'pet_expert' as const, name: '宠物专家', icon: 'pets', color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' },
+                  { id: 'emotional_counselor' as const, name: '情感顾问', icon: 'favorite', color: 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400' },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={async () => {
+                      if (!user || aiLoading) return;
+                      setAiLoading(item.id);
+                      try {
+                        const convId = await getOrCreateAIConversation(user.id, item.id);
+                        setShowNewChat(false);
+                        navigate(`/chat/${convId}`);
+                      } catch {
+                        showToast('发起 AI 会话失败，请重试');
+                      } finally {
+                        setAiLoading(null);
+                      }
+                    }}
+                    disabled={!!aiLoading}
+                    className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all text-left disabled:opacity-60"
+                  >
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${item.color}`}>
+                      <span className="material-icons-round text-2xl">{item.icon}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">{item.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                        {aiLoading === item.id ? '连接中...' : '专业咨询'}
+                      </p>
+                    </div>
+                    <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-lg">chevron_right</span>
+                  </button>
+                ))}
+              </div>
+
               {/* 最近联系人 */}
               {conversations.filter(c => !c.isSystem).length > 0 ? (
                 <>
