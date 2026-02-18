@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Home from './pages/Home';
 import PetDetail from './pages/PetDetail';
 import AdoptionForm from './pages/AdoptionForm';
@@ -21,19 +23,15 @@ import PrivacySettings from './pages/PrivacySettings';
 import AboutUs from './pages/AboutUs';
 import UserAgreement from './pages/UserAgreement';
 import PrivacyPolicy from './pages/PrivacyPolicy';
-
-interface ToastState {
-  message: string;
-  visible: boolean;
-}
+import ThemeSettings from './pages/ThemeSettings';
 
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <span className="material-icons text-[#60e750] text-4xl animate-spin">refresh</span>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
+        <span className="material-icons text-primary text-4xl animate-spin">refresh</span>
       </div>
     );
   }
@@ -45,17 +43,17 @@ const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) 
   return element;
 };
 
-const AppRoutes: React.FC<{ showToast: (msg: string) => void }> = ({ showToast }) => {
+const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Home />} />
-      <Route path="/pet/:id" element={<PetDetail showToast={showToast} />} />
+      <Route path="/pet/:id" element={<PetDetail />} />
       <Route path="/adopt" element={<ProtectedRoute element={<AdoptionForm />} />} />
-      <Route path="/profile" element={<ProtectedRoute element={<Profile showToast={showToast} />} />} />
+      <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
       <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
-      <Route path="/favorites" element={<ProtectedRoute element={<Favorites showToast={showToast} />} />} />
-      <Route path="/chat/:id" element={<ProtectedRoute element={<ChatDetail showToast={showToast} />} />} />
+      <Route path="/favorites" element={<ProtectedRoute element={<Favorites />} />} />
+      <Route path="/chat/:id" element={<ProtectedRoute element={<ChatDetail />} />} />
       <Route path="/my-pets" element={<ProtectedRoute element={<MyPets />} />} />
       <Route path="/verification" element={<ProtectedRoute element={<Verification />} />} />
       <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
@@ -65,6 +63,7 @@ const AppRoutes: React.FC<{ showToast: (msg: string) => void }> = ({ showToast }
       <Route path="/social-account" element={<ProtectedRoute element={<SocialAccount />} />} />
       <Route path="/notification-settings" element={<ProtectedRoute element={<NotificationSettings />} />} />
       <Route path="/privacy-settings" element={<ProtectedRoute element={<PrivacySettings />} />} />
+      <Route path="/theme-settings" element={<ThemeSettings />} />
       <Route path="/about-us" element={<ProtectedRoute element={<AboutUs />} />} />
       <Route path="/user-agreement" element={<UserAgreement />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -74,30 +73,16 @@ const AppRoutes: React.FC<{ showToast: (msg: string) => void }> = ({ showToast }
 };
 
 const App: React.FC = () => {
-  const [toast, setToast] = useState<ToastState>({ message: '', visible: false });
-
-  const showToast = (message: string) => {
-    setToast({ message, visible: true });
-    setTimeout(() => {
-      setToast({ message: '', visible: false });
-    }, 2000);
-  };
-
   return (
-    <HashRouter>
-      <AuthProvider>
-        <AppRoutes showToast={showToast} />
-        {toast.visible && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full shadow-lg z-[998] fade-in"
-          >
-            {toast.message}
-          </div>
-        )}
-      </AuthProvider>
-    </HashRouter>
+    <ThemeProvider>
+      <HashRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <AppRoutes />
+          </ToastProvider>
+        </AuthProvider>
+      </HashRouter>
+    </ThemeProvider>
   );
 };
 

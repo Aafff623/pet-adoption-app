@@ -1,6 +1,16 @@
 import { supabase } from '../supabase';
 import type { UserProfile } from '../../types';
 
+export class AvatarUploadError extends Error {
+  constructor(
+    message: string,
+    public readonly userMessage: string
+  ) {
+    super(message);
+    this.name = 'AvatarUploadError';
+  }
+}
+
 export const uploadAvatar = async (userId: string, file: File): Promise<string> => {
   const ext = file.name.split('.').pop() ?? 'jpg';
   const path = `${userId}/${Date.now()}.${ext}`;
@@ -10,22 +20,40 @@ export const uploadAvatar = async (userId: string, file: File): Promise<string> 
     .upload(path, file, { upsert: true, contentType: file.type });
 
   if (uploadError) {
+    const msg = uploadError.message.toLowerCase();
     if (
-      uploadError.message.includes('Bucket not found') ||
-      uploadError.message.includes('storage/bucket-not-found') ||
-      uploadError.message.includes('not found')
+      msg.includes('bucket not found') ||
+      msg.includes('storage/bucket-not-found') ||
+      (msg.includes('bucket') && msg.includes('not found'))
     ) {
-      throw new Error(
-        '头像上传失败：请先在 Supabase Dashboard → Storage 中创建名为 avatars 的公开 Bucket'
+      throw new AvatarUploadError(
+        uploadError.message,
+        '头像上传失败：请先在 Supabase Dashboard → Storage 中创建名为 avatars 的公开 Bucket，并执行 supabase/storage_policies.sql 配置策略'
       );
     }
-    throw new Error(`上传失败：${uploadError.message}`);
+    if (msg.includes('policy') || msg.includes('row level security') || msg.includes('rls') || msg.includes('permission') || msg.includes('denied')) {
+      throw new AvatarUploadError(
+        uploadError.message,
+        '头像上传失败：Storage 权限不足，请在 Supabase 中执行 supabase/storage_policies.sql 配置上传策略'
+      );
+    }
+    if (msg.includes('network') || msg.includes('fetch') || msg.includes('timeout')) {
+      throw new AvatarUploadError(uploadError.message, '头像上传失败：网络异常，请检查网络后重试');
+    }
+    throw new AvatarUploadError(uploadError.message, `上传失败：${uploadError.message}`);
   }
 
   const { data } = supabase.storage.from('avatars').getPublicUrl(path);
   const publicUrl = data.publicUrl;
 
-  await updateProfile(userId, { avatarUrl: publicUrl });
+  try {
+    await updateProfile(userId, { avatarUrl: publicUrl });
+  } catch (profileError) {
+    throw new AvatarUploadError(
+      profileError instanceof Error ? profileError.message : 'updateProfile failed',
+      '头像已上传但资料更新失败，请重试'
+    );
+  }
   return publicUrl;
 };
 

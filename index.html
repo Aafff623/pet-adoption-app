@@ -1,14 +1,25 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
+    <script>
+      (function() {
+        const key = 'petconnect_theme';
+        const stored = localStorage.getItem(key);
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = stored === 'dark' ? 'dark' : stored === 'light' ? 'light' : (prefersDark ? 'dark' : 'light');
+        document.documentElement.classList.toggle('dark', resolved === 'dark');
+      })();
+    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
     <title>PetConnect</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Round" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -18,6 +29,9 @@
               "surface-white": "#ffffff",
               "text-main": "#1f2937",
               "text-sub": "#6b7280",
+              "bg-dark": "#18181b",
+              "surface-dark": "#27272a",
+              "border-dark": "#3f3f46",
             },
             fontFamily: {
               sans: ["Arimo", "Noto Sans SC", "sans-serif"],
@@ -35,6 +49,9 @@
       body {
         background-color: #f6f8f6;
         -webkit-tap-highlight-color: transparent;
+      }
+      .dark body {
+        background-color: #18181b;
       }
       /* Hide scrollbar for cleaner mobile look */
       .scrollbar-hide::-webkit-scrollbar {

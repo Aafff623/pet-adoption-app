@@ -62,6 +62,7 @@ const Settings: React.FC = () => {
     {
       title: '通用设置',
       items: [
+        { label: '外观', path: '/theme-settings', icon: 'palette' },
         { label: '消息通知', path: '/notification-settings', icon: 'notifications' },
         { label: '隐私设置', path: '/privacy-settings', icon: 'security' },
         {
@@ -93,37 +94,37 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="bg-background-light min-h-screen flex flex-col fade-in">
-      <header className="px-4 py-4 flex items-center bg-white shadow-sm sticky top-0 z-50">
+    <div className="bg-background-light dark:bg-zinc-900 min-h-screen flex flex-col fade-in">
+      <header className="px-4 py-4 flex items-center bg-white dark:bg-zinc-800 shadow-sm sticky top-0 z-50">
         <button
           onClick={handleBack}
-          className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors"
+          className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors"
           aria-label="返回"
         >
-          <span className="material-icons-round text-2xl text-gray-700">arrow_back</span>
+          <span className="material-icons-round text-2xl text-gray-700 dark:text-zinc-300">arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold text-gray-900 ml-2">设置</h1>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-zinc-100 ml-2">设置</h1>
       </header>
 
       <main className="p-6 space-y-6">
         {sections.map((section, idx) => (
           <div key={idx} className="space-y-2">
-            <h2 className="text-sm font-medium text-gray-500 ml-1">{section.title}</h2>
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+            <h2 className="text-sm font-medium text-gray-500 dark:text-zinc-400 ml-1">{section.title}</h2>
+            <div className="bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-700">
               {section.items.map((item, i) => (
                 <button
                   key={i}
                   onClick={() => handleItemClick(item)}
-                  className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left ${
-                    i !== section.items.length - 1 ? 'border-b border-gray-50' : ''
+                  className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left ${
+                    i !== section.items.length - 1 ? 'border-b border-gray-50 dark:border-zinc-700' : ''
                   }`}
                   aria-label={item.label}
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`material-icons-round text-xl ${clearDone && item.icon === 'check_circle' ? 'text-green-500' : 'text-gray-400'}`}>
+                    <span className={`material-icons-round text-xl ${clearDone && item.icon === 'check_circle' ? 'text-green-500' : 'text-gray-400 dark:text-zinc-500'}`}>
                       {item.icon}
                     </span>
-                    <span className={`${item.danger ? 'text-red-500' : 'text-gray-800'}`}>
+                    <span className={`${item.danger ? 'text-red-500' : 'text-gray-800 dark:text-zinc-200'}`}>
                       {item.label}
                     </span>
                   </div>
@@ -133,7 +134,7 @@ const Settings: React.FC = () => {
                         {item.badge}
                       </span>
                     )}
-                    <span className="material-icons-round text-gray-300">chevron_right</span>
+                    <span className="material-icons-round text-gray-300 dark:text-zinc-600">chevron_right</span>
                   </div>
                 </button>
               ))}
@@ -144,24 +145,24 @@ const Settings: React.FC = () => {
 
       {showClearConfirm && (
         <div
-          className="fixed inset-0 bg-black/50 z-[999] flex items-end justify-center"
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[999] flex items-end justify-center"
           onClick={() => setShowClearConfirm(false)}
         >
           <div
-            className="bg-white rounded-t-3xl w-full max-w-md p-6 space-y-4"
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="text-center space-y-1">
-              <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
                 <span className="material-icons-round text-orange-500 text-2xl">delete_sweep</span>
               </div>
-              <h3 className="text-base font-bold text-gray-900">清除缓存</h3>
-              <p className="text-sm text-gray-500">将清除本地通知、隐私等设置缓存数据，不影响账号信息。</p>
+              <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">清除缓存</h3>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">将清除本地通知、隐私等设置缓存数据，不影响账号信息。</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
               >
                 取消
               </button>
@@ -177,7 +178,7 @@ const Settings: React.FC = () => {
       )}
 
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full shadow-lg z-[998] fade-in">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-zinc-600 text-white px-5 py-3 rounded-full shadow-lg z-[998] fade-in">
           {toast}
         </div>
       )}

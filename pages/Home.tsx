@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
+import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { useToast } from '../contexts/ToastContext';
+import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
 import { fetchPetList, fetchRecommendedPets } from '../lib/api/pets';
 import type { Pet } from '../types';
+
 
 type CategoryId = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
 
@@ -109,6 +114,9 @@ const HOT_CITIES = ['上海', '北京', '广州', '深圳', '成都', '杭州', 
 const CAROUSEL_INTERVAL = 4000;
 
 const Home: React.FC = () => {
+  const { showToast } = useToast();
+  const { user } = useAuth();
+  const { resolvedTheme, setTheme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<CategoryId>('all');
   const [pets, setPets] = useState<Pet[]>([]);
   const [recommendedPets, setRecommendedPets] = useState<Pet[]>([]);
@@ -121,6 +129,9 @@ const Home: React.FC = () => {
   const [citySearch, setCitySearch] = useState('');
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterUrgent, setFilterUrgent] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [carouselFavoritedIds, setCarouselFavoritedIds] = useState<Set<string>>(new Set());
+  const [carouselFavoriteLoading, setCarouselFavoriteLoading] = useState(false);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const newArrivalsRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
@@ -141,14 +152,18 @@ const Home: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchRecommendedPets(4).then(data => {
+    fetchRecommendedPets(4).then(async data => {
       setRecommendedPets(data);
       setCarouselLoading(false);
       if (data.length > 1) startAutoPlay(data.length);
+      if (user && data.length > 0) {
+        const ids = await Promise.all(data.map(p => checkIsFavorited(user.id, p.id)));
+        setCarouselFavoritedIds(new Set(data.filter((_, i) => ids[i]).map(p => p.id)));
+      }
     }).catch(() => setCarouselLoading(false));
 
     return () => stopAutoPlay();
-  }, [startAutoPlay]);
+  }, [startAutoPlay, user]);
 
   const loadData = useCallback(async (category: CategoryId) => {
     setLoading(true);
@@ -156,12 +171,12 @@ const Home: React.FC = () => {
       const petList = await fetchPetList(category);
       const recommendedIds = new Set(recommendedPets.map(p => p.id));
       setPets(petList.filter(p => !recommendedIds.has(p.id)));
-    } catch (err) {
-      console.error('加载宠物列表失败', err);
+    } catch {
+      showToast('加载宠物列表失败，请重试');
     } finally {
       setLoading(false);
     }
-  }, [recommendedPets]);
+  }, [recommendedPets, showToast]);
 
   useEffect(() => {
     loadData(activeCategory);
@@ -195,9 +210,51 @@ const Home: React.FC = () => {
     setFilterUrgent(false);
   };
 
+  const handleCarouselFavoriteToggle = async (e: React.MouseEvent, pet: Pet) => {
+    e.stopPropagation();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (carouselFavoriteLoading) return;
+
+    setCarouselFavoriteLoading(true);
+    try {
+      const isFavorited = carouselFavoritedIds.has(pet.id);
+      if (isFavorited) {
+        await removeFavorite(user.id, pet.id);
+        setCarouselFavoritedIds(prev => {
+          const next = new Set(prev);
+          next.delete(pet.id);
+          return next;
+        });
+        showToast('已取消收藏');
+      } else {
+        await addFavorite(user.id, pet.id);
+        setCarouselFavoritedIds(prev => new Set(prev).add(pet.id));
+        showToast('已收藏');
+      }
+    } catch {
+      showToast('操作失败，请重试');
+    } finally {
+      setCarouselFavoriteLoading(false);
+    }
+  };
+
+  const matchesSearch = (pet: Pet) => {
+    if (!searchKeyword.trim()) return true;
+    const kw = searchKeyword.trim().toLowerCase();
+    return (
+      pet.name.toLowerCase().includes(kw) ||
+      pet.breed.toLowerCase().includes(kw) ||
+      (pet.description?.toLowerCase().includes(kw) ?? false)
+    );
+  };
+
   const filteredPets = pets.filter(pet => {
     if (filterGender !== 'all' && pet.gender !== filterGender) return false;
     if (filterUrgent && !pet.isUrgent) return false;
+    if (!matchesSearch(pet)) return false;
     return true;
   });
 
@@ -205,37 +262,51 @@ const Home: React.FC = () => {
 
   return (
     <div className="pb-24 fade-in">
-      <header className="px-6 pt-8 pb-4 sticky top-0 z-40 bg-background-light/95 backdrop-blur-sm">
+      <header className="px-6 pt-8 pb-4 sticky top-0 z-40 bg-background-light/95 dark:bg-zinc-900/95 backdrop-blur-sm">
         <div className="flex justify-between items-center mb-6">
           <div className="flex flex-col">
-            <span className="text-xs font-medium text-gray-500 mb-1">当前位置</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">当前位置</span>
             <button
               onClick={() => setShowLocationSheet(true)}
               className="flex items-center gap-1 group active:scale-[0.97] transition-transform"
               aria-label="选择城市"
             >
               <span className="material-icons-round text-primary text-xl">location_on</span>
-              <span className="font-bold text-lg text-text-main group-hover:text-primary transition-colors">
+              <span className="font-bold text-lg text-text-main dark:text-zinc-100 group-hover:text-primary transition-colors">
                 {selectedCity.name}, {selectedCity.district}
               </span>
-              <span className="material-icons-round text-gray-400 text-sm">expand_more</span>
+              <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-sm">expand_more</span>
             </button>
           </div>
-          <button
-            onClick={() => navigate('/messages')}
-            className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center relative hover:bg-gray-50 active:scale-[0.97] transition-all shadow-sm"
-          >
-            <span className="material-icons-round text-gray-400">notifications</span>
-            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all shadow-sm"
+              aria-label={resolvedTheme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
+            >
+              <span className="material-icons-round text-gray-400 dark:text-zinc-500">
+                {resolvedTheme === 'dark' ? 'light_mode' : 'dark_mode'}
+              </span>
+            </button>
+            <button
+              onClick={() => navigate('/messages')}
+              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex items-center justify-center relative hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all shadow-sm"
+            >
+              <span className="material-icons-round text-gray-400 dark:text-zinc-500">notifications</span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+            </button>
+          </div>
         </div>
         <div className="relative">
           <input
-            className="w-full h-12 pl-12 pr-12 rounded-2xl bg-white border-none focus:ring-2 focus:ring-primary/50 text-sm font-medium placeholder-gray-400 shadow-sm"
+            className="w-full h-12 pl-12 pr-12 rounded-2xl bg-white dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary/50 text-sm font-medium placeholder-gray-400 dark:placeholder-zinc-500 shadow-sm text-gray-900 dark:text-zinc-100"
             placeholder="搜索宠物、品种..."
             type="text"
+            value={searchKeyword}
+            onChange={e => setSearchKeyword(e.target.value)}
+            aria-label="搜索宠物"
           />
-          <span className="material-icons-round absolute left-4 top-3 text-gray-400">search</span>
+          <span className="material-icons-round absolute left-4 top-3 text-gray-400 dark:text-zinc-500">search</span>
           <button
             onClick={() => setShowFilterSheet(true)}
             className="absolute right-3 top-2 bg-primary p-1.5 rounded-xl shadow-lg shadow-primary/30 active:scale-[0.95] transition-transform"
@@ -257,7 +328,7 @@ const Home: React.FC = () => {
                 className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-sm transition-all active:scale-[0.96] whitespace-nowrap ${
                   activeCategory === cat.id
                     ? 'bg-primary text-black shadow-primary/20'
-                    : 'bg-white border border-gray-100 text-gray-500 hover:bg-gray-50'
+                    : 'bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
                 <span className="text-lg">{cat.icon}</span>
@@ -270,7 +341,7 @@ const Home: React.FC = () => {
         {/* 推荐伙伴轮播 */}
         <section>
           <div className="flex justify-between items-end mb-4">
-            <h2 className="text-xl font-bold text-text-main">推荐伙伴</h2>
+            <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">推荐伙伴</h2>
             <button
               onClick={() => {
                 setActiveCategory('all');
@@ -283,10 +354,10 @@ const Home: React.FC = () => {
           </div>
 
           {carouselLoading ? (
-            <div className="w-full h-52 rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="w-full h-52 rounded-2xl bg-gray-100 dark:bg-zinc-800 animate-pulse" />
           ) : recommendedPets.length === 0 ? (
-            <div className="w-full h-52 rounded-2xl bg-gray-50 flex items-center justify-center">
-              <p className="text-sm text-gray-400">暂无推荐宠物</p>
+            <div className="w-full h-52 rounded-2xl bg-gray-50 dark:bg-zinc-800 flex items-center justify-center">
+              <p className="text-sm text-gray-400 dark:text-zinc-500">暂无推荐宠物</p>
             </div>
           ) : (
             <div className="relative w-full h-52 rounded-2xl overflow-hidden shadow-xl group">
@@ -303,7 +374,7 @@ const Home: React.FC = () => {
                     src={pet.imageUrl}
                     alt={pet.name}
                     loading={index === 0 ? 'eager' : 'lazy'}
-                    className="w-full h-full object-cover bg-gray-100"
+                    className="w-full h-full object-cover bg-gray-100 dark:bg-zinc-800"
                     onError={handleImgError}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -317,10 +388,14 @@ const Home: React.FC = () => {
                     <p className="text-sm text-gray-300">{pet.breed}</p>
                   </div>
                   <button
-                    onClick={e => { e.stopPropagation(); }}
-                    className="absolute bottom-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-md p-2 rounded-full transition-colors active:scale-[0.9] z-20"
+                    onClick={e => handleCarouselFavoriteToggle(e, pet)}
+                    disabled={carouselFavoriteLoading}
+                    className="absolute bottom-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-md p-2 rounded-full transition-colors active:scale-[0.9] z-20 disabled:opacity-50"
+                    aria-label={carouselFavoritedIds.has(pet.id) ? '取消收藏' : '收藏'}
                   >
-                    <span className="material-icons-round text-white text-xl">favorite_border</span>
+                    <span className={`material-icons-round text-xl ${carouselFavoritedIds.has(pet.id) ? 'text-red-500' : 'text-white'}`}>
+                      {carouselFavoritedIds.has(pet.id) ? 'favorite' : 'favorite_border'}
+                    </span>
                   </button>
                 </div>
               ))}
@@ -367,8 +442,8 @@ const Home: React.FC = () => {
         {/* 新到伙伴网格 */}
         <section ref={newArrivalsRef}>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-text-main">新到伙伴</h2>
-            {(filterGender !== 'all' || filterUrgent) && (
+            <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">新到伙伴</h2>
+            {(filterGender !== 'all' || filterUrgent || searchKeyword.trim()) && (
               <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
                 已筛选
               </span>
@@ -377,13 +452,13 @@ const Home: React.FC = () => {
           {loading ? (
             <div className="columns-2 gap-4 space-y-4">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="break-inside-avoid bg-gray-100 rounded-2xl h-52 animate-pulse" />
+                <div key={i} className="break-inside-avoid bg-gray-100 dark:bg-zinc-800 rounded-2xl h-52 animate-pulse" />
               ))}
             </div>
           ) : filteredPets.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-gray-400 dark:text-zinc-500">
               <span className="material-icons text-5xl mb-2">search_off</span>
-              <p className="text-sm">暂无该分类的宠物</p>
+              <p className="text-sm">{searchKeyword.trim() ? `未找到与「${searchKeyword.trim()}」匹配的宠物` : '暂无该分类的宠物'}</p>
             </div>
           ) : (
             <div className="columns-2 gap-4 space-y-4">
@@ -391,14 +466,14 @@ const Home: React.FC = () => {
                 <div
                   key={pet.id}
                   onClick={() => navigate(`/pet/${pet.id}`)}
-                  className="break-inside-avoid bg-white rounded-2xl p-2.5 pb-4 shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-300 group cursor-pointer border border-gray-50"
+                  className="break-inside-avoid bg-white dark:bg-zinc-800 rounded-2xl p-2.5 pb-4 shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-300 group cursor-pointer border border-gray-50 dark:border-zinc-700"
                 >
                   <div className="relative rounded-xl overflow-hidden mb-3">
                     <img
                       src={pet.imageUrl}
                       alt={pet.name}
                       loading="lazy"
-                      className="w-full object-cover bg-gray-100"
+                      className="w-full object-cover bg-gray-100 dark:bg-zinc-800"
                       style={{ aspectRatio: ASPECT_RATIOS[pet.id] ?? '1/1.3' }}
                       onError={handleImgError}
                     />
@@ -410,8 +485,8 @@ const Home: React.FC = () => {
                   <div className="px-1">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-bold text-lg text-text-main leading-tight">{pet.name}</h3>
-                        <p className="text-xs text-gray-500 mt-1">{pet.breed}</p>
+                        <h3 className="font-bold text-lg text-text-main dark:text-zinc-100 leading-tight">{pet.name}</h3>
+                        <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">{pet.breed}</p>
                       </div>
                       <span className={`material-icons-round text-lg ${pet.gender === 'female' ? 'text-pink-400' : 'text-blue-400'}`}>
                         {pet.gender}
@@ -430,48 +505,48 @@ const Home: React.FC = () => {
       {/* 城市选择底部弹窗 */}
       {showLocationSheet && (
         <div
-          className="fixed inset-0 bg-black/50 z-[999] flex items-end justify-center"
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[999] flex items-end justify-center"
           onClick={() => { setShowLocationSheet(false); setCitySearch(''); }}
         >
           <div
-            className="bg-white rounded-t-3xl w-full max-w-md flex flex-col"
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md flex flex-col"
             style={{ maxHeight: '85vh' }}
             onClick={e => e.stopPropagation()}
           >
             {/* 拖拽指示条 */}
             <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-zinc-600" />
             </div>
 
             {/* 标题栏 */}
             <div className="flex items-center justify-between px-5 py-3 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900">选择城市</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-100">选择城市</h3>
               <button
                 onClick={() => { setShowLocationSheet(false); setCitySearch(''); }}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors active:scale-[0.9]"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors active:scale-[0.9]"
                 aria-label="关闭"
               >
-                <span className="material-icons-round text-gray-500 text-lg">close</span>
+                <span className="material-icons-round text-gray-500 dark:text-zinc-400 text-lg">close</span>
               </button>
             </div>
 
             {/* 搜索框 */}
             <div className="px-5 pb-3 shrink-0">
               <div className="relative">
-                <span className="material-icons-round absolute left-3 top-2.5 text-gray-400 text-lg">search</span>
+                <span className="material-icons-round absolute left-3 top-2.5 text-gray-400 dark:text-zinc-500 text-lg">search</span>
                 <input
                   type="text"
                   placeholder="搜索城市..."
                   value={citySearch}
                   onChange={e => setCitySearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-700 rounded-xl text-sm border border-gray-100 dark:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/40 text-gray-900 dark:text-zinc-100"
                 />
                 {citySearch && (
                   <button
                     onClick={() => setCitySearch('')}
                     className="absolute right-3 top-2.5"
                   >
-                    <span className="material-icons-round text-gray-400 text-lg">cancel</span>
+                    <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-lg">cancel</span>
                   </button>
                 )}
               </div>
@@ -483,7 +558,7 @@ const Home: React.FC = () => {
                 <>
                   {/* 热门城市 */}
                   <div className="mb-5">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">热门城市</p>
+                    <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-3">热门城市</p>
                     <div className="grid grid-cols-4 gap-2">
                       {HOT_CITIES.map(name => {
                         const city = ALL_CITIES.find(c => c.name === name);
@@ -496,7 +571,7 @@ const Home: React.FC = () => {
                             className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.95] relative ${
                               isSelected
                                 ? 'bg-primary text-black shadow-sm shadow-primary/30'
-                                : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100'
+                                : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600 border border-gray-100 dark:border-zinc-600'
                             }`}
                           >
                             {name}
@@ -514,7 +589,7 @@ const Home: React.FC = () => {
                     <div key={regionGroup.region} className="mb-5">
                       <div className="flex items-center gap-2 mb-3">
                         <div className="w-1 h-4 bg-primary rounded-full" />
-                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{regionGroup.region}</p>
+                        <p className="text-xs font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-wider">{regionGroup.region}</p>
                       </div>
                       <div className="grid grid-cols-4 gap-2">
                         {regionGroup.cities.map(city => {
@@ -526,7 +601,7 @@ const Home: React.FC = () => {
                               className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.95] relative ${
                                 isSelected
                                   ? 'bg-primary text-black shadow-sm shadow-primary/30'
-                                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100'
+                                  : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600 border border-gray-100 dark:border-zinc-600'
                               }`}
                             >
                               {city.name}
@@ -557,7 +632,7 @@ const Home: React.FC = () => {
                             className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.95] relative ${
                               isSelected
                                 ? 'bg-primary text-black shadow-sm shadow-primary/30'
-                                : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100'
+                                : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600 border border-gray-100 dark:border-zinc-600'
                             }`}
                           >
                             {city.name}
@@ -569,7 +644,7 @@ const Home: React.FC = () => {
                       })}
                     </div>
                   ) : (
-                    <div className="text-center py-12 text-gray-400">
+                    <div className="text-center py-12 text-gray-400 dark:text-zinc-500">
                       <span className="material-icons-round text-4xl mb-2 block">search_off</span>
                       <p className="text-sm">未找到"{citySearch}"</p>
                     </div>
@@ -584,25 +659,25 @@ const Home: React.FC = () => {
       {/* 筛选底部弹窗 */}
       {showFilterSheet && (
         <div
-          className="fixed inset-0 bg-black/50 z-[999] flex items-end justify-center"
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[999] flex items-end justify-center"
           onClick={() => setShowFilterSheet(false)}
         >
           <div
-            className="bg-white rounded-t-3xl w-full max-w-md p-6 space-y-5"
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-5"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-gray-900">筛选</h3>
+              <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">筛选</h3>
               <button
                 onClick={() => setShowFilterSheet(false)}
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors active:scale-[0.9]"
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors active:scale-[0.9]"
               >
-                <span className="material-icons-round text-gray-500 text-xl">close</span>
+                <span className="material-icons-round text-gray-500 dark:text-zinc-400 text-xl">close</span>
               </button>
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-600">性别</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-zinc-400">性别</p>
               <div className="flex gap-3">
                 {[
                   { value: 'all', label: '全部' },
@@ -615,7 +690,7 @@ const Home: React.FC = () => {
                     className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.96] ${
                       filterGender === opt.value
                         ? 'bg-primary text-black'
-                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                        : 'bg-gray-50 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600'
                     }`}
                   >
                     {opt.label}
@@ -624,17 +699,17 @@ const Home: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between py-2 border-t border-gray-50">
+            <div className="flex items-center justify-between py-2 border-t border-gray-50 dark:border-zinc-700">
               <div>
-                <p className="text-sm font-medium text-gray-800">仅显示紧急领养</p>
-                <p className="text-xs text-gray-400 mt-0.5">优先展示需要紧急安置的宠物</p>
+                <p className="text-sm font-medium text-gray-800 dark:text-zinc-200">仅显示紧急领养</p>
+                <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">优先展示需要紧急安置的宠物</p>
               </div>
               <button
                 role="switch"
                 aria-checked={filterUrgent}
                 onClick={() => setFilterUrgent(v => !v)}
                 className={`relative w-12 h-6 rounded-full transition-colors duration-200 flex-shrink-0 overflow-hidden ${
-                  filterUrgent ? 'bg-primary' : 'bg-gray-200'
+                  filterUrgent ? 'bg-primary' : 'bg-gray-200 dark:bg-zinc-600'
                 }`}
               >
                 <span
@@ -648,7 +723,7 @@ const Home: React.FC = () => {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleResetFilter}
-                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 active:scale-[0.97] transition-all"
+                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all"
               >
                 重置
               </button>

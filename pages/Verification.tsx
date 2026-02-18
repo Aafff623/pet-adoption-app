@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { fetchVerification, submitVerification } from '../lib/api/verification';
 import type { Verification as VerificationType } from '../types';
 
@@ -16,6 +17,7 @@ const maskIdNumber = (idNumber: string): string => {
 
 const Verification: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const { user } = useAuth();
   const [verification, setVerification] = useState<VerificationType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,14 +38,14 @@ const Verification: React.FC = () => {
         const data = await fetchVerification(user.id);
         setVerification(data);
         if (!data) setShowForm(true);
-      } catch (err) {
-        console.error('加载认证信息失败', err);
+      } catch {
+        showToast('加载认证信息失败，请重试');
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [user]);
+  }, [user, showToast]);
 
   const handleBack = () => {
     if (window.history.length > 1) {

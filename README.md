@@ -36,7 +36,7 @@
    - `VITE_SUPABASE_ANON_KEY`：Supabase Anon Key
    - `GEMINI_API_KEY`：可选，用于 AI 能力
 4. 在 Supabase SQL Editor 中依次执行 [`supabase/schema.sql`](supabase/schema.sql) 和 [`supabase/seed.sql`](supabase/seed.sql) 初始化数据库
-5. 在 Supabase Storage 中创建 `avatars` 公开 Bucket（用于头像上传）
+5. 在 Supabase Storage 中创建 `avatars` 公开 Bucket（用于头像上传），并执行 [`supabase/storage_policies.sql`](supabase/storage_policies.sql) 配置上传策略
 6. 启动开发服务器：`npm run dev`（默认端口 3000）
 
 ## 环境变量说明
@@ -67,7 +67,8 @@ petconnect-app/
 ├── pages/            # 页面组件
 ├── supabase/         # 数据库脚本
 │   ├── schema.sql
-│   └── seed.sql
+│   ├── seed.sql
+│   └── storage_policies.sql   # Storage 头像上传策略
 ├── App.tsx
 ├── types.ts
 └── index.html
