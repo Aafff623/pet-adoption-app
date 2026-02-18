@@ -55,6 +55,37 @@ export const fetchMyApplications = async (userId: string): Promise<AdoptionAppli
   }));
 };
 
+export const fetchUserApplicationForPet = async (
+  userId: string,
+  petId: string
+): Promise<AdoptionApplication | null> => {
+  const { data, error } = await supabase
+    .from('adoption_applications')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('pet_id', petId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    petId: data.pet_id,
+    fullName: data.full_name,
+    age: data.age,
+    occupation: data.occupation,
+    housingType: data.housing_type,
+    livingStatus: data.living_status,
+    hasExperience: data.has_experience,
+    message: data.message,
+    status: data.status as AdoptionApplication['status'],
+    createdAt: data.created_at,
+  };
+};
+
 export const fetchApplyingCount = async (userId: string): Promise<number> => {
   const { count, error } = await supabase
     .from('adoption_applications')

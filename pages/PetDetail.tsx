@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchPetById } from '../lib/api/pets';
+import { fetchUserApplicationForPet } from '../lib/api/adoption';
 import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
 import { createOrFindConversation } from '../lib/api/messages';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import type { Pet } from '../types';
+import type { Pet, AdoptionApplication } from '../types';
 
 const PET_PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='62' font-size='40' text-anchor='middle'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E`;
 
@@ -21,6 +22,7 @@ const PetDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
+  const [userApplication, setUserApplication] = useState<AdoptionApplication | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -34,12 +36,14 @@ const PetDetail: React.FC = () => {
     const loadPet = async () => {
       setLoading(true);
       try {
-        const [foundPet, favorited] = await Promise.all([
+        const [foundPet, favorited, application] = await Promise.all([
           fetchPetById(id),
           user ? checkIsFavorited(user.id, id) : Promise.resolve(false),
+          user && id ? fetchUserApplicationForPet(user.id, id) : Promise.resolve(null),
         ]);
         setPet(foundPet);
         setIsFavorited(favorited);
+        setUserApplication(application ?? null);
       } catch {
         showToast('加载宠物详情失败，请重试');
       } finally {
@@ -272,17 +276,29 @@ const PetDetail: React.FC = () => {
             <span className="material-icons-round text-gray-400 dark:text-zinc-500 group-hover:text-primary text-2xl transition-colors">chat_bubble_outline</span>
           )}
         </button>
-        <button
-          onClick={() => {
-            if (!user) { navigate('/login'); return; }
-            navigate(`/adopt?petId=${pet.id}`);
-          }}
-          className="flex-1 h-14 rounded-2xl bg-primary hover:bg-green-500 text-white font-bold text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-          aria-label="立即申请领养"
-        >
-          <span>立即申请</span>
-          <span className="material-icons-round text-xl">pets</span>
-        </button>
+        {userApplication?.status === 'approved' || pet.status === 'adopted' ? (
+          <div className="flex-1 h-14 rounded-2xl bg-gray-200 dark:bg-zinc-600 text-gray-500 dark:text-zinc-400 font-bold text-lg flex items-center justify-center gap-2 cursor-not-allowed" aria-label="已领养">
+            <span>已领养</span>
+            <span className="material-icons-round text-xl">check_circle</span>
+          </div>
+        ) : userApplication?.status === 'pending' || pet.status === 'pending' ? (
+          <div className="flex-1 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-bold text-lg flex items-center justify-center gap-2 cursor-not-allowed" aria-label="审核中">
+            <span>审核中</span>
+            <span className="material-icons-round text-xl">schedule</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              if (!user) { navigate('/login'); return; }
+              navigate(`/adopt?petId=${pet.id}`);
+            }}
+            className="flex-1 h-14 rounded-2xl bg-primary hover:bg-green-500 text-white font-bold text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+            aria-label="立即申请领养"
+          >
+            <span>立即申请</span>
+            <span className="material-icons-round text-xl">pets</span>
+          </button>
+        )}
       </div>
 
       {/* 寄养家庭联系弹窗 */}
