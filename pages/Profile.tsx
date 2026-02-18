@@ -39,13 +39,17 @@ const Profile: React.FC = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (!user) {
+      showToast('请先登录');
+      return;
+    }
     if (!editNickname.trim()) {
       showToast('昵称不能为空');
       return;
     }
     setSaving(true);
     try {
-      await updateProfile(user!.id, {
+      await updateProfile(user.id, {
         nickname: editNickname.trim(),
         bio: editBio.trim(),
         city: editCity.trim(),
@@ -53,8 +57,9 @@ const Profile: React.FC = () => {
       await refreshProfile();
       setShowEditSheet(false);
       showToast('资料已更新');
-    } catch {
-      showToast('更新失败，请重试');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '更新失败';
+      showToast(msg.includes('row-level security') || msg.includes('RLS') ? '权限不足，请检查 Supabase 策略' : `更新失败：${msg}`);
     } finally {
       setSaving(false);
     }
@@ -378,6 +383,7 @@ const Profile: React.FC = () => {
                 取消
               </button>
               <button
+                type="button"
                 onClick={handleSaveProfile}
                 disabled={saving || !editNickname.trim()}
                 className="flex-1 py-3 rounded-xl bg-primary text-black font-bold shadow-md shadow-primary/30 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 flex items-center justify-center gap-2"

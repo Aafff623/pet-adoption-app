@@ -90,10 +90,18 @@ export const updateProfile = async (
   if (updates.bio !== undefined) payload.bio = updates.bio;
   if (updates.city !== undefined) payload.city = updates.city;
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(payload)
-    .eq('id', userId);
-
-  if (error) throw new Error(error.message);
+  const hasNickname = updates.nickname !== undefined;
+  if (hasNickname) {
+    const upsertPayload = { id: userId, ...payload };
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(upsertPayload, { onConflict: 'id' });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', userId);
+    if (error) throw new Error(error.message);
+  }
 };
