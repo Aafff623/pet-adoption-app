@@ -60,18 +60,30 @@ export async function generateAgentReply(
       }),
     });
 
-    if (!res.ok) return null;
-
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
+      error?: { message?: string; code?: string };
     };
+
+    if (!res.ok) {
+      console.warn('[PetConnect Doubao] API 失败:', {
+        status: res.status,
+        statusText: res.statusText,
+        modelId,
+        error: data?.error?.message ?? data,
+      });
+      return null;
+    }
+
     const text = data.choices?.[0]?.message?.content;
 
     if (typeof text === 'string' && text.trim()) {
       return text.trim();
     }
+    console.warn('[PetConnect Doubao] 响应无有效 content:', data);
     return null;
-  } catch {
+  } catch (err) {
+    console.warn('[PetConnect Doubao] 请求异常:', err);
     return null;
   }
 }

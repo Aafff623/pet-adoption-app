@@ -196,6 +196,15 @@ PetConnect 是纯静态前端应用，可一键部署到任意静态托管平台
    - AI 智能体相关：`VITE_LLM_PROVIDER` 及对应 provider 的 API Key（见上方环境变量表），否则 AI 回复会显示「抱歉，我这边有点卡，稍后再试～」
 
 > ⚠️ 注意：以 `VITE_` 为前缀的变量会被 Vite 在构建时注入到客户端代码中，请勿在此前缀下存放敏感密钥。
+> **环境变量修改后必须重新部署**（Redeploy）才能生效。
+
+### 豆包 AI 调用失败排查
+
+若配置了 `VITE_DOUBAO_*` 仍显示「抱歉，我这边有点卡，稍后再试～」：
+
+1. **确认已重新部署**：在 Vercel Deployments 页点击 Redeploy
+2. **确认 Model ID 格式**：`VITE_DOUBAO_MODEL_ID` 应为火山方舟控制台中的「推理接入点 ID」，格式为 `ep-xxxx`（自定义）或预置模型 ID（如 `doubao-pro-32k-241215`）
+3. **打开浏览器控制台**：发送消息后查看 `[PetConnect Doubao]` 开头的日志，可看到 API 返回的 status、error 信息
 
 ---
 
