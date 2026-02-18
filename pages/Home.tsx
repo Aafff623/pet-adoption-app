@@ -6,8 +6,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
 import { fetchPetList, fetchRecommendedPets } from '../lib/api/pets';
+import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
+import { DEFAULT_LOCATION } from '../lib/data/regions';
 import type { Pet } from '../types';
-
 
 type CategoryId = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
 
@@ -32,85 +33,6 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
   target.src = PET_PLACEHOLDER;
 };
 
-const CITY_REGIONS = [
-  {
-    region: '华北',
-    cities: [
-      { name: '北京', district: '朝阳区' },
-      { name: '天津', district: '和平区' },
-      { name: '石家庄', district: '裕华区' },
-      { name: '太原', district: '小店区' },
-      { name: '呼和浩特', district: '回民区' },
-    ],
-  },
-  {
-    region: '华东',
-    cities: [
-      { name: '上海', district: '黄浦区' },
-      { name: '杭州', district: '西湖区' },
-      { name: '南京', district: '鼓楼区' },
-      { name: '苏州', district: '姑苏区' },
-      { name: '宁波', district: '鄞州区' },
-      { name: '合肥', district: '庐阳区' },
-      { name: '济南', district: '历城区' },
-      { name: '青岛', district: '市南区' },
-      { name: '福州', district: '鼓楼区' },
-      { name: '厦门', district: '思明区' },
-      { name: '南昌', district: '西湖区' },
-    ],
-  },
-  {
-    region: '华中',
-    cities: [
-      { name: '武汉', district: '江汉区' },
-      { name: '长沙', district: '岳麓区' },
-      { name: '郑州', district: '金水区' },
-    ],
-  },
-  {
-    region: '华南',
-    cities: [
-      { name: '广州', district: '天河区' },
-      { name: '深圳', district: '南山区' },
-      { name: '东莞', district: '莞城区' },
-      { name: '珠海', district: '香洲区' },
-      { name: '南宁', district: '青秀区' },
-      { name: '海口', district: '美兰区' },
-    ],
-  },
-  {
-    region: '西南',
-    cities: [
-      { name: '重庆', district: '渝中区' },
-      { name: '成都', district: '锦江区' },
-      { name: '昆明', district: '五华区' },
-      { name: '贵阳', district: '云岩区' },
-    ],
-  },
-  {
-    region: '西北',
-    cities: [
-      { name: '西安', district: '雁塔区' },
-      { name: '兰州', district: '城关区' },
-      { name: '银川', district: '金凤区' },
-      { name: '西宁', district: '城东区' },
-      { name: '乌鲁木齐', district: '天山区' },
-    ],
-  },
-  {
-    region: '东北',
-    cities: [
-      { name: '沈阳', district: '沈河区' },
-      { name: '大连', district: '中山区' },
-      { name: '长春', district: '朝阳区' },
-      { name: '哈尔滨', district: '道里区' },
-    ],
-  },
-];
-
-const ALL_CITIES = CITY_REGIONS.flatMap(r => r.cities);
-const HOT_CITIES = ['上海', '北京', '广州', '深圳', '成都', '杭州', '武汉', '南京', '西安', '重庆'];
-
 const CAROUSEL_INTERVAL = 4000;
 
 const Home: React.FC = () => {
@@ -125,8 +47,7 @@ const Home: React.FC = () => {
   const [carouselLoading, setCarouselLoading] = useState(true);
   const [showLocationSheet, setShowLocationSheet] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [selectedCity, setSelectedCity] = useState(ALL_CITIES[0]);
-  const [citySearch, setCitySearch] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<LocationOption>(DEFAULT_LOCATION);
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterUrgent, setFilterUrgent] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -195,9 +116,9 @@ const Home: React.FC = () => {
     startAutoPlay(recommendedPets.length);
   };
 
-  const handleCitySelect = (city: typeof ALL_CITIES[number]) => {
-    setSelectedCity(city);
-    setCitySearch('');
+  const handleLocationSelect = (loc: LocationOption) => {
+    setSelectedLocation(loc);
+    setLocationSearch('');
     setShowLocationSheet(false);
   };
 
@@ -273,7 +194,7 @@ const Home: React.FC = () => {
             >
               <span className="material-icons-round text-primary text-xl">location_on</span>
               <span className="font-bold text-lg text-text-main dark:text-zinc-100 group-hover:text-primary transition-colors">
-                {selectedCity.name}, {selectedCity.district}
+                {formatLocationDisplay(selectedLocation)}
               </span>
               <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-sm">expand_more</span>
             </button>
@@ -503,158 +424,12 @@ const Home: React.FC = () => {
       <BottomNav />
 
       {/* 城市选择底部弹窗 */}
-      {showLocationSheet && (
-        <div
-          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[999] flex items-end justify-center"
-          onClick={() => { setShowLocationSheet(false); setCitySearch(''); }}
-        >
-          <div
-            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md flex flex-col"
-            style={{ maxHeight: '85vh' }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* 拖拽指示条 */}
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-zinc-600" />
-            </div>
-
-            {/* 标题栏 */}
-            <div className="flex items-center justify-between px-5 py-3 shrink-0">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-zinc-100">选择城市</h3>
-              <button
-                onClick={() => { setShowLocationSheet(false); setCitySearch(''); }}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors active:scale-[0.9]"
-                aria-label="关闭"
-              >
-                <span className="material-icons-round text-gray-500 dark:text-zinc-400 text-lg">close</span>
-              </button>
-            </div>
-
-            {/* 搜索框 */}
-            <div className="px-5 pb-3 shrink-0">
-              <div className="relative">
-                <span className="material-icons-round absolute left-3 top-2.5 text-gray-400 dark:text-zinc-500 text-lg">search</span>
-                <input
-                  type="text"
-                  placeholder="搜索城市..."
-                  value={citySearch}
-                  onChange={e => setCitySearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-zinc-700 rounded-xl text-sm border border-gray-100 dark:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/40 text-gray-900 dark:text-zinc-100"
-                />
-                {citySearch && (
-                  <button
-                    onClick={() => setCitySearch('')}
-                    className="absolute right-3 top-2.5"
-                  >
-                    <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-lg">cancel</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 内容区域（可滚动） */}
-            <div className="overflow-y-auto px-5 pb-6 flex-1">
-              {citySearch.trim() === '' ? (
-                <>
-                  {/* 热门城市 */}
-                  <div className="mb-5">
-                    <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-3">热门城市</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {HOT_CITIES.map(name => {
-                        const city = ALL_CITIES.find(c => c.name === name);
-                        if (!city) return null;
-                        const isSelected = selectedCity.name === name;
-                        return (
-                          <button
-                            key={name}
-                            onClick={() => handleCitySelect(city)}
-                            className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.95] relative ${
-                              isSelected
-                                ? 'bg-primary text-black shadow-sm shadow-primary/30'
-                                : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600 border border-gray-100 dark:border-zinc-600'
-                            }`}
-                          >
-                            {name}
-                            {isSelected && (
-                              <span className="absolute top-0.5 right-0.5 material-icons-round text-black text-[10px]">check</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 按大区分组 */}
-                  {CITY_REGIONS.map(regionGroup => (
-                    <div key={regionGroup.region} className="mb-5">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-1 h-4 bg-primary rounded-full" />
-                        <p className="text-xs font-bold text-gray-500 dark:text-zinc-500 uppercase tracking-wider">{regionGroup.region}</p>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2">
-                        {regionGroup.cities.map(city => {
-                          const isSelected = selectedCity.name === city.name;
-                          return (
-                            <button
-                              key={city.name}
-                              onClick={() => handleCitySelect(city)}
-                              className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.95] relative ${
-                                isSelected
-                                  ? 'bg-primary text-black shadow-sm shadow-primary/30'
-                                  : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600 border border-gray-100 dark:border-zinc-600'
-                              }`}
-                            >
-                              {city.name}
-                              {isSelected && (
-                                <span className="absolute top-0.5 right-0.5 material-icons-round text-black text-[10px]">check</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                /* 搜索结果 */
-                (() => {
-                  const results = ALL_CITIES.filter(c =>
-                    c.name.includes(citySearch.trim()) || c.district.includes(citySearch.trim())
-                  );
-                  return results.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-2 pt-1">
-                      {results.map(city => {
-                        const isSelected = selectedCity.name === city.name;
-                        return (
-                          <button
-                            key={city.name}
-                            onClick={() => handleCitySelect(city)}
-                            className={`py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.95] relative ${
-                              isSelected
-                                ? 'bg-primary text-black shadow-sm shadow-primary/30'
-                                : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600 border border-gray-100 dark:border-zinc-600'
-                            }`}
-                          >
-                            {city.name}
-                            {isSelected && (
-                              <span className="absolute top-0.5 right-0.5 material-icons-round text-black text-[10px]">check</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-gray-400 dark:text-zinc-500">
-                      <span className="material-icons-round text-4xl mb-2 block">search_off</span>
-                      <p className="text-sm">未找到"{citySearch}"</p>
-                    </div>
-                  );
-                })()
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <LocationPicker
+        open={showLocationSheet}
+        onClose={() => { setShowLocationSheet(false); }}
+        value={selectedLocation}
+        onChange={handleLocationSelect}
+      />
 
       {/* 筛选底部弹窗 */}
       {showFilterSheet && (

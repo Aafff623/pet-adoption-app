@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
+import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { updateProfile, uploadAvatar, AvatarUploadError } from '../lib/api/profile';
 import { fetchApplyingCount } from '../lib/api/adoption';
+import { parseLocationDisplay, DEFAULT_LOCATION } from '../lib/data/regions';
 
 const DEFAULT_AVATAR = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDgVPpxg8HIumU7EpauZP9ZlqirzBnKLdJFGK3sIDR54NKgoMvWdCpOnQkKZ8i9pqr-ZwirabrItbbt19Vsp_Ks7rywsrwksbIasOlJwu_nzBSwVNsNqNU-QjsRBwhhPM8QaaDUMMydnkQNIgx8i8vIvll48zgOHd8bQb75k7SbZ6Q_TY-_ic2MXjg2J04C-ZxWIQTqZSB2ovFoiPFZMYQSivk3XgoNPRSlgXwh6z0jYRNW1FiTPEJPxBeGSAmJTnizmRheXOoL44o';
 
@@ -20,7 +22,8 @@ const Profile: React.FC = () => {
 
   const [editNickname, setEditNickname] = useState('');
   const [editBio, setEditBio] = useState('');
-  const [editCity, setEditCity] = useState('');
+  const [editLocation, setEditLocation] = useState<LocationOption>(DEFAULT_LOCATION);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,7 +37,7 @@ const Profile: React.FC = () => {
   const openEditSheet = () => {
     setEditNickname(profile?.nickname ?? '');
     setEditBio(profile?.bio ?? '');
-    setEditCity(profile?.city ?? '');
+    setEditLocation(parseLocationDisplay(profile?.city ?? '') ?? DEFAULT_LOCATION);
     setShowEditSheet(true);
   };
 
@@ -52,10 +55,11 @@ const Profile: React.FC = () => {
       await updateProfile(user.id, {
         nickname: editNickname.trim(),
         bio: editBio.trim(),
-        city: editCity.trim(),
+        city: formatLocationDisplay(editLocation),
       });
       await refreshProfile();
       setShowEditSheet(false);
+      setShowLocationPicker(false);
       showToast('资料已更新');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '更新失败';
@@ -344,16 +348,23 @@ const Profile: React.FC = () => {
               <label className="text-sm font-medium text-gray-700 dark:text-zinc-300" htmlFor="edit-city">
                 所在城市
               </label>
-              <input
+              <button
                 id="edit-city"
-                type="text"
-                maxLength={20}
-                value={editCity}
-                onChange={e => setEditCity(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-zinc-700 rounded-xl px-4 py-3 border border-gray-200 dark:border-zinc-600 focus:ring-2 focus:ring-primary/50 focus:border-transparent text-gray-900 dark:text-zinc-100 text-sm"
-                placeholder="例如：上海"
-              />
+                type="button"
+                onClick={() => setShowLocationPicker(true)}
+                className="w-full bg-gray-50 dark:bg-zinc-700 rounded-xl px-4 py-3 border border-gray-200 dark:border-zinc-600 focus:ring-2 focus:ring-primary/50 focus:border-transparent text-gray-900 dark:text-zinc-100 text-sm text-left flex items-center justify-between"
+              >
+                <span>{formatLocationDisplay(editLocation)}</span>
+                <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-lg">expand_more</span>
+              </button>
             </div>
+
+            <LocationPicker
+              open={showLocationPicker}
+              onClose={() => setShowLocationPicker(false)}
+              value={editLocation}
+              onChange={setEditLocation}
+            />
 
             {/* 邮箱（只读）*/}
             <div className="space-y-1.5">
@@ -376,7 +387,7 @@ const Profile: React.FC = () => {
             {/* 操作按钮 */}
             <div className="flex gap-3 pt-2 pb-2">
               <button
-                onClick={() => setShowEditSheet(false)}
+                onClick={() => { setShowEditSheet(false); setShowLocationPicker(false); }}
                 disabled={saving}
                 className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all disabled:opacity-50"
               >
