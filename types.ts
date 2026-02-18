@@ -113,3 +113,13 @@ export interface Conversation {
   isSystem: boolean;
   createdAt: string;
 }
+
+// ============================================================
+// 回收站类型
+// ============================================================
+export interface TrashedGroup {
+  conversation: Conversation;
+  messageCount: number;
+  trashedAt: string;
+  expiresAt: string;
+}

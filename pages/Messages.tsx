@@ -368,6 +368,18 @@ const Messages: React.FC = () => {
         </div>
       )}
 
+      {/* 回收站入口 */}
+      <div className="px-6 pb-3 shrink-0">
+        <button
+          onClick={() => navigate('/recycle-bin')}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.99] transition-all text-left"
+        >
+          <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-xl">restore_from_trash</span>
+          <span className="text-sm text-gray-500 dark:text-zinc-400 font-medium">消息回收站</span>
+          <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-base ml-auto">chevron_right</span>
+        </button>
+      </div>
+
       <BottomNav />
     </div>
   );

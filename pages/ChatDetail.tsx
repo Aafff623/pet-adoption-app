@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import {
   fetchChatMessages,
   sendChatMessage,
+  insertSystemReply,
   subscribeToMessages,
   markConversationRead,
   fetchConversations,
@@ -13,6 +14,7 @@ import {
 import type { ChatMessage, Conversation } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { formatTime } from '../lib/utils/date';
+import { pickReply } from '../lib/utils/autoReply';
 
 const ChatDetail: React.FC = () => {
   const { showToast } = useToast();
@@ -61,6 +63,7 @@ const ChatDetail: React.FC = () => {
         if (exists) return prev;
         return [...prev, newMsg];
       });
+      markConversationRead(id);
     });
 
     return () => {
@@ -92,9 +95,14 @@ const ChatDetail: React.FC = () => {
       await clearChatMessages(id);
       setChatMessages([]);
       setShowClearConfirm(false);
-      showToast('聊天记录已清空');
-    } catch {
-      showToast('清空失败，请重试');
+      showToast('已移入回收站，3 天内可还原');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('deleted_at') || msg.includes('column')) {
+        showToast('请先在 Supabase 执行 add_deleted_at_to_chat_messages.sql');
+      } else {
+        showToast('清空失败，请重试');
+      }
     } finally {
       setClearing(false);
     }
@@ -105,6 +113,8 @@ const ChatDetail: React.FC = () => {
     if (!inputMessage.trim() || !id || sending) return;
 
     const text = inputMessage.trim();
+    const convId = id;
+    const isSystemConv = conversation?.isSystem ?? false;
     setInputMessage('');
     setSending(true);
 
@@ -115,6 +125,24 @@ const ChatDetail: React.FC = () => {
         if (exists) return prev;
         return [...prev, sent];
       });
+
+      if (!isSystemConv) {
+        const delayMs = 2000 + Math.random() * 3000;
+        setTimeout(async () => {
+          try {
+            const reply = pickReply(text);
+            const replyMsg = await insertSystemReply(convId, reply);
+            setChatMessages(prev => {
+              const exists = prev.some(m => m.id === replyMsg.id);
+              if (exists) return prev;
+              return [...prev, replyMsg];
+            });
+            markConversationRead(convId);
+          } catch {
+            // 自动回复失败静默处理，不影响用户
+          }
+        }, delayMs);
+      }
     } catch {
       setInputMessage(text);
       showToast('消息发送失败，请重试');
@@ -308,7 +336,8 @@ const ChatDetail: React.FC = () => {
 
             <div className="px-4 space-y-1">
               {[
-                { icon: 'delete_sweep', label: '清空聊天记录', color: 'text-gray-700', action: handleClearChatClick },
+                { icon: 'delete_sweep', label: '清空聊天记录', color: 'text-gray-700 dark:text-zinc-300', action: handleClearChatClick },
+                { icon: 'restore_from_trash', label: '消息回收站', color: 'text-blue-500', action: () => { setShowMoreMenu(false); navigate('/recycle-bin'); } },
                 { icon: 'flag', label: '举报该用户', color: 'text-orange-500', action: () => setShowMoreMenu(false) },
                 { icon: 'block', label: '屏蔽该用户', color: 'text-red-500', action: () => setShowMoreMenu(false) },
               ].map(item => (
@@ -347,10 +376,10 @@ const ChatDetail: React.FC = () => {
           >
             <div className="text-center space-y-1">
               <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
-                <span className="material-icons-round text-orange-500 text-2xl">delete_sweep</span>
+                <span className="material-icons-round text-orange-500 text-2xl">restore_from_trash</span>
               </div>
               <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">清空聊天记录</h3>
-              <p className="text-sm text-gray-500 dark:text-zinc-400">将删除本会话的全部消息，此操作不可恢复。</p>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">消息将移入回收站，3 天内可随时还原。</p>
             </div>
             <div className="flex gap-3">
               <button

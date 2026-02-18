@@ -24,6 +24,7 @@ import AboutUs from './pages/AboutUs';
 import UserAgreement from './pages/UserAgreement';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import ThemeSettings from './pages/ThemeSettings';
+import RecycleBin from './pages/RecycleBin';
 
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
   const { user, loading } = useAuth();
@@ -67,6 +68,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/about-us" element={<ProtectedRoute element={<AboutUs />} />} />
       <Route path="/user-agreement" element={<UserAgreement />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/recycle-bin" element={<ProtectedRoute element={<RecycleBin />} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
