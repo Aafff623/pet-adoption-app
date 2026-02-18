@@ -4,7 +4,6 @@ import BottomNav from '../components/BottomNav';
 import { useAuth } from '../contexts/AuthContext';
 import { updateProfile, uploadAvatar } from '../lib/api/profile';
 import { fetchApplyingCount } from '../lib/api/adoption';
-import { supabase } from '../lib/supabase';
 
 interface ProfileProps {
   showToast: (message: string) => void;
@@ -48,9 +47,10 @@ const Profile: React.FC<ProfileProps> = ({ showToast }) => {
     }
     setSaving(true);
     try {
-      await updateProfile(user!.id, { nickname: editNickname.trim() });
-      await supabase.auth.updateUser({
-        data: { bio: editBio.trim(), city: editCity.trim() },
+      await updateProfile(user!.id, {
+        nickname: editNickname.trim(),
+        bio: editBio.trim(),
+        city: editCity.trim(),
       });
       await refreshProfile();
       setShowEditSheet(false);
@@ -70,9 +70,16 @@ const Profile: React.FC<ProfileProps> = ({ showToast }) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
+    if (!file.type.startsWith('image/')) {
+      showToast('请选择图片文件（JPG、PNG、GIF 等）');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       showToast('图片不能超过 5MB');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 

@@ -55,7 +55,7 @@ const AppRoutes: React.FC<{ showToast: (msg: string) => void }> = ({ showToast }
       <Route path="/profile" element={<ProtectedRoute element={<Profile showToast={showToast} />} />} />
       <Route path="/messages" element={<ProtectedRoute element={<Messages />} />} />
       <Route path="/favorites" element={<ProtectedRoute element={<Favorites showToast={showToast} />} />} />
-      <Route path="/chat/:id" element={<ProtectedRoute element={<ChatDetail />} />} />
+      <Route path="/chat/:id" element={<ProtectedRoute element={<ChatDetail showToast={showToast} />} />} />
       <Route path="/my-pets" element={<ProtectedRoute element={<MyPets />} />} />
       <Route path="/verification" element={<ProtectedRoute element={<Verification />} />} />
       <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />

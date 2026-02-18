@@ -23,25 +23,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const [profileResult, userResult] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
-      supabase.auth.getUser(),
-    ]);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-    const { data, error } = profileResult;
     if (error || !data) {
       setProfile(null);
       return;
     }
 
-    const metadata = userResult.data?.user?.user_metadata ?? {};
-
     setProfile({
       id: data.id,
       nickname: data.nickname,
       avatarUrl: data.avatar_url,
-      bio: (metadata.bio as string) ?? '',
-      city: (metadata.city as string) ?? '',
+      bio: (data.bio as string) ?? '',
+      city: (data.city as string) ?? '',
       followingCount: data.following_count,
       applyingCount: data.applying_count,
       adoptedCount: data.adopted_count,

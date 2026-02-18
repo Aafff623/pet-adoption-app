@@ -10,12 +10,18 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nickname TEXT NOT NULL DEFAULT '宠物爱好者',
   avatar_url TEXT DEFAULT '',
+  bio TEXT DEFAULT '',
+  city TEXT DEFAULT '',
   following_count INTEGER NOT NULL DEFAULT 0,
   applying_count INTEGER NOT NULL DEFAULT 0,
   adopted_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- 为已存在的数据库补充 bio 和 city 列（幂等操作）
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
@@ -148,6 +154,9 @@ CREATE POLICY "conversations_insert_own" ON public.conversations
 
 CREATE POLICY "conversations_update_own" ON public.conversations
   FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "conversations_delete_own" ON public.conversations
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- 6. chat_messages 聊天消息表

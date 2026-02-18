@@ -122,6 +122,7 @@ const Home: React.FC = () => {
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterUrgent, setFilterUrgent] = useState(false);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const newArrivalsRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
 
   const stopAutoPlay = () => {
@@ -270,7 +271,13 @@ const Home: React.FC = () => {
         <section>
           <div className="flex justify-between items-end mb-4">
             <h2 className="text-xl font-bold text-text-main">推荐伙伴</h2>
-            <button className="text-xs font-semibold text-primary hover:underline active:opacity-70 transition-opacity">
+            <button
+              onClick={() => {
+                setActiveCategory('all');
+                setTimeout(() => newArrivalsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+              }}
+              className="text-xs font-semibold text-primary hover:underline active:opacity-70 transition-opacity"
+            >
               查看全部
             </button>
           </div>
@@ -358,7 +365,7 @@ const Home: React.FC = () => {
         </section>
 
         {/* 新到伙伴网格 */}
-        <section>
+        <section ref={newArrivalsRef}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-text-main">新到伙伴</h2>
             {(filterGender !== 'all' || filterUrgent) && (

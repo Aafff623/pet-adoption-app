@@ -28,6 +28,7 @@ const PetDetail: React.FC<PetDetailProps> = ({ showToast }) => {
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
+  const [showContactSheet, setShowContactSheet] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -207,7 +208,11 @@ const PetDetail: React.FC<PetDetailProps> = ({ showToast }) => {
               <h3 className="text-gray-900 font-bold text-sm">{pet.fosterParent.name}</h3>
               <p className="text-gray-500 text-xs">寄养家庭</p>
             </div>
-            <button className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-primary transition-colors" aria-label={`联系寄养家庭 ${pet.fosterParent.name}`}>
+            <button
+              onClick={() => setShowContactSheet(true)}
+              className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-primary transition-colors active:scale-95"
+              aria-label={`联系寄养家庭 ${pet.fosterParent.name}`}
+            >
               <span className="material-icons-round text-xl">phone</span>
             </button>
           </div>
@@ -271,7 +276,10 @@ const PetDetail: React.FC<PetDetailProps> = ({ showToast }) => {
           )}
         </button>
         <button
-          onClick={() => navigate(`/adopt?petId=${pet.id}`)}
+          onClick={() => {
+            if (!user) { navigate('/login'); return; }
+            navigate(`/adopt?petId=${pet.id}`);
+          }}
           className="flex-1 h-14 rounded-2xl bg-primary hover:bg-green-500 text-white font-bold text-lg shadow-lg shadow-primary/30 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
           aria-label="立即申请领养"
         >
@@ -279,6 +287,75 @@ const PetDetail: React.FC<PetDetailProps> = ({ showToast }) => {
           <span className="material-icons-round text-xl">pets</span>
         </button>
       </div>
+
+      {/* 寄养家庭联系弹窗 */}
+      {showContactSheet && pet.fosterParent && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[999] flex items-end justify-center"
+          onClick={() => setShowContactSheet(false)}
+        >
+          <div
+            className="bg-white rounded-t-3xl w-full max-w-md pb-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-3 pb-2 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-gray-200" />
+            </div>
+
+            {/* 寄养家庭信息 */}
+            <div className="flex flex-col items-center px-6 pt-4 pb-6">
+              <div className="relative mb-4">
+                <img
+                  src={pet.fosterParent.avatar}
+                  alt={pet.fosterParent.name}
+                  className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg bg-gray-100"
+                  onError={handleImgError}
+                />
+                <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1 border-2 border-white">
+                  <span className="material-icons-round text-black text-xs">verified</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">{pet.fosterParent.name}</h3>
+              <div className="flex items-center gap-1.5 mb-4">
+                <span className="bg-green-50 text-primary text-xs font-semibold px-3 py-1 rounded-full border border-green-100">
+                  认证寄养家庭
+                </span>
+              </div>
+              <div className="w-full bg-gray-50 rounded-2xl p-4 mb-6 space-y-2">
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <span className="material-icons-round text-primary text-lg">shield</span>
+                  <span>已通过平台实名认证审核</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <span className="material-icons-round text-primary text-lg">pets</span>
+                  <span>当前寄养宠物：{pet.name}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <span className="material-icons-round text-primary text-lg">location_on</span>
+                  <span>{pet.location || '位置未公开'}</span>
+                </div>
+              </div>
+
+              <div className="w-full flex gap-3">
+                <button
+                  onClick={() => { setShowContactSheet(false); handleChat(); }}
+                  className="flex-1 h-12 rounded-2xl bg-primary text-black font-bold flex items-center justify-center gap-2 shadow-md shadow-primary/30 active:scale-[0.97] transition-all"
+                >
+                  <span className="material-icons-round text-lg">chat_bubble_outline</span>
+                  <span>发消息联系</span>
+                </button>
+                <button
+                  onClick={() => { setShowContactSheet(false); showToast('电话功能即将上线'); }}
+                  className="flex-1 h-12 rounded-2xl bg-gray-100 text-gray-700 font-bold flex items-center justify-center gap-2 hover:bg-gray-200 active:scale-[0.97] transition-all"
+                >
+                  <span className="material-icons-round text-lg">phone</span>
+                  <span>拨打电话</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
