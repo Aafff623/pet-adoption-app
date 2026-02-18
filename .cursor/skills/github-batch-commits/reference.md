@@ -1,5 +1,71 @@
 # 分批提交参考
 
+## 提交信息中文乱码（Windows/PowerShell）
+
+### 现象
+
+在 Windows PowerShell 下使用 `git commit -m "feat: 中文描述"` 时，中文可能被编码错误，提交历史中显示为乱码（如 `娣诲姞` 代替 `添加`）。
+
+### 原因
+
+PowerShell 默认编码与 Git 期望的 UTF-8 不一致，命令行直接传入的中文字符串在传递过程中被错误编码。
+
+### 解决方案
+
+**方式 A：使用文件传入提交信息（推荐）**
+
+```bash
+# 1. 用编辑器新建 .git/COMMIT_MSG，写入提交信息，保存为 UTF-8
+#    （Cursor/VSCode 新建文件默认 UTF-8，直接粘贴 "feat: pwa添加到桌面上" 即可）
+
+# 2. 使用 -F 从文件读取
+git commit -F .git/COMMIT_MSG
+
+# 3. 或修正上一次提交
+git commit --amend -F .git/COMMIT_MSG
+
+# 4. 提交后删除临时文件
+rm .git/COMMIT_MSG
+```
+
+**方式 B：在编辑器中写提交信息**
+
+```bash
+git commit
+# 或
+git commit --amend
+# 会打开默认编辑器，在编辑器中输入中文提交信息并保存
+```
+
+**方式 C：设置 PowerShell 编码后再执行**
+
+```powershell
+chcp 65001
+git commit -m "feat: 中文描述"
+```
+
+注意：方式 C 在某些环境下仍可能乱码，优先使用方式 A。
+
+### 修正已提交的乱码
+
+若已推送乱码提交，需修正后强制推送：
+
+```bash
+# 1. 用编辑器新建 .git/COMMIT_MSG，写入正确信息（如 feat: pwa添加到桌面上），保存为 UTF-8
+
+# 2. 修正最近一次提交
+git commit --amend -F .git/COMMIT_MSG
+
+# 3. 强制推送（会改写远程历史）
+git push --force-with-lease
+
+# 4. 删除临时文件（可选）
+# Windows: del .git\COMMIT_MSG
+# Unix: rm .git/COMMIT_MSG
+```
+
+---
+
 ## 分组示例
 
 ### 示例 1：多功能混合
@@ -45,6 +111,7 @@ Changes to be committed:
 | 仅配置文件变更 | 单独 `chore(config)` 或并入相关功能 |
 | 大量小改动分散 | 按目录优先分组，再按语义微调 |
 | 迁移 SQL 与 API 代码 | 若为同一 feature，可同组；否则 schema 先提交 |
+| **中文提交信息乱码** | 使用 `git commit -F <文件>` 从 UTF-8 文件读取，见上文 |
 
 ---
 

@@ -73,6 +73,8 @@ git add <file1> <file2> ...
 git commit -m "feat(scope): 简短描述"
 ```
 
+**注意**：若提交信息含中文且在 Windows/PowerShell 下出现乱码，改用 `git commit -F <文件>` 从 UTF-8 文件读取，详见 [reference.md#提交信息中文乱码](reference.md#提交信息中文乱码windowspowershell)。
+
 **提交信息格式**（Conventional Commits）：
 
 | 类型 | 用途 |
