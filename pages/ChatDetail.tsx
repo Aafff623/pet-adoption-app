@@ -8,6 +8,7 @@ import {
   subscribeToMessages,
   markConversationRead,
   fetchConversations,
+  clearChatMessages,
 } from '../lib/api/messages';
 import type { ChatMessage, Conversation } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -30,6 +31,8 @@ const ChatDetail: React.FC = () => {
   const [showAttachPanel, setShowAttachPanel] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -78,6 +81,26 @@ const ChatDetail: React.FC = () => {
       navigate(-1);
     } else {
       navigate('/messages', { replace: true });
+    }
+  };
+
+  const handleClearChatClick = () => {
+    setShowMoreMenu(false);
+    setShowClearConfirm(true);
+  };
+
+  const confirmClearChat = async () => {
+    if (!id || clearing) return;
+    setClearing(true);
+    try {
+      await clearChatMessages(id);
+      setChatMessages([]);
+      setShowClearConfirm(false);
+      showToast('聊天记录已清空');
+    } catch {
+      showToast('清空失败，请重试');
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -289,13 +312,13 @@ const ChatDetail: React.FC = () => {
 
             <div className="px-4 space-y-1">
               {[
-                { icon: 'delete_sweep', label: '清空聊天记录', color: 'text-gray-700', danger: false },
-                { icon: 'flag', label: '举报该用户', color: 'text-orange-500', danger: false },
-                { icon: 'block', label: '屏蔽该用户', color: 'text-red-500', danger: true },
+                { icon: 'delete_sweep', label: '清空聊天记录', color: 'text-gray-700', action: handleClearChatClick },
+                { icon: 'flag', label: '举报该用户', color: 'text-orange-500', action: () => setShowMoreMenu(false) },
+                { icon: 'block', label: '屏蔽该用户', color: 'text-red-500', action: () => setShowMoreMenu(false) },
               ].map(item => (
                 <button
                   key={item.icon}
-                  onClick={() => setShowMoreMenu(false)}
+                  onClick={item.action}
                   className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors text-left"
                 >
                   <span className={`material-icons-round ${item.color}`}>{item.icon}</span>
@@ -310,6 +333,43 @@ const ChatDetail: React.FC = () => {
                 className="w-full py-3.5 bg-gray-100 dark:bg-zinc-700 rounded-2xl text-sm font-bold text-gray-700 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-600 active:scale-[0.98] transition-all"
               >
                 取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 清空聊天记录确认弹窗 */}
+      {showClearConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[1000] flex items-end justify-center"
+          onClick={() => !clearing && setShowClearConfirm(false)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="text-center space-y-1">
+              <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center mx-auto mb-3">
+                <span className="material-icons-round text-orange-500 text-2xl">delete_sweep</span>
+              </div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">清空聊天记录</h3>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">将删除本会话的全部消息，此操作不可恢复。</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => !clearing && setShowClearConfirm(false)}
+                disabled={clearing}
+                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmClearChat}
+                disabled={clearing}
+                className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+              >
+                {clearing ? '清空中...' : '确认清空'}
               </button>
             </div>
           </div>

@@ -128,6 +128,20 @@ export const deleteConversation = async (conversationId: string): Promise<void> 
   await supabase.from('conversations').delete().eq('id', conversationId);
 };
 
+export const clearChatMessages = async (conversationId: string): Promise<void> => {
+  const { error: deleteError } = await supabase
+    .from('chat_messages')
+    .delete()
+    .eq('conversation_id', conversationId);
+
+  if (deleteError) throw new Error(deleteError.message);
+
+  await supabase
+    .from('conversations')
+    .update({ last_message: '', last_message_time: new Date().toISOString() })
+    .eq('id', conversationId);
+};
+
 export const fetchTotalUnreadCount = async (userId: string): Promise<number> => {
   const { data, error } = await supabase
     .from('conversations')

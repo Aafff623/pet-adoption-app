@@ -187,6 +187,14 @@ CREATE POLICY "chat_messages_insert_own" ON public.chat_messages
     )
   );
 
+CREATE POLICY "chat_messages_delete_own" ON public.chat_messages
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.conversations c
+      WHERE c.id = conversation_id AND c.user_id = auth.uid()
+    )
+  );
+
 -- ============================================================
 -- 7. verifications 实名认证表
 -- ============================================================
