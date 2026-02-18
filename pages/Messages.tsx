@@ -5,24 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { fetchConversations, deleteConversation } from '../lib/api/messages';
 import type { Conversation } from '../types';
-
-const formatTime = (isoString: string): string => {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  } else if (diffDays === 1) {
-    return '昨天';
-  } else if (diffDays < 7) {
-    const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    return days[date.getDay()];
-  }
-  return `${date.getMonth() + 1}-${date.getDate()}`;
-};
+import { formatRelativeTime } from '../lib/utils/date';
 
 const Messages: React.FC = () => {
   const { showToast } = useToast();
@@ -265,7 +248,7 @@ const Messages: React.FC = () => {
                 <div className="flex justify-between items-baseline mb-1">
                   <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100 truncate">{conv.otherUserName}</h3>
                   <span className={`text-xs font-medium ml-2 shrink-0 ${conv.unreadCount > 0 ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>
-                    {formatTime(conv.lastMessageTime)}
+                    {formatRelativeTime(conv.lastMessageTime)}
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-zinc-400 truncate pr-2">{conv.lastMessage || '暂无消息'}</p>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 interface SocialPlatform {
   id: string;
@@ -19,12 +20,7 @@ const SocialAccount: React.FC = () => {
     { id: 'google', name: 'Google', icon: 'language', iconColor: 'text-yellow-500', bound: false },
   ]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2000);
-  };
+  const { showToast } = useToast();
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -139,12 +135,6 @@ const SocialAccount: React.FC = () => {
           <p className="text-xs text-blue-600">至少需要保留一种登录方式，解绑前请确保还有其他可用的登录方式。</p>
         </div>
       </main>
-
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full shadow-lg z-[998] fade-in">
-          {toast}
-        </div>
-      )}
     </div>
   );
 };

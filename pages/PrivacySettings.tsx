@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { loadLocalSettings, saveLocalSettings } from '../lib/utils/storage';
 
 interface PrivacyItem {
   id: string;
@@ -18,26 +19,9 @@ interface PrivacyGroup {
 
 const STORAGE_KEY = 'petconnect_privacy_settings';
 
-const loadSettings = (): Record<string, boolean | string> => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-const saveSettings = (settings: Record<string, boolean | string>) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // ignore storage errors
-  }
-};
-
 const PrivacySettings: React.FC = () => {
   const navigate = useNavigate();
-  const stored = loadSettings();
+  const stored = loadLocalSettings<Record<string, boolean | string>>(STORAGE_KEY, {});
 
   const [groups, setGroups] = useState<PrivacyGroup[]>([
     {
@@ -127,7 +111,7 @@ const PrivacySettings: React.FC = () => {
         if (item.type === 'select') newSettings[item.id] = item.value!;
       });
     });
-    saveSettings(newSettings);
+    saveLocalSettings(STORAGE_KEY, newSettings);
     return updated;
   };
 

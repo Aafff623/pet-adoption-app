@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../contexts/ToastContext';
 
 interface SettingItem {
   label: string;
@@ -17,14 +18,9 @@ interface SettingSection {
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearDone, setClearDone] = useState(false);
-  const [toast, setToast] = useState('');
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2000);
-  };
 
   const handleClearCache = () => {
     setShowClearConfirm(true);
@@ -174,12 +170,6 @@ const Settings: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-zinc-600 text-white px-5 py-3 rounded-full shadow-lg z-[998] fade-in">
-          {toast}
         </div>
       )}
     </div>

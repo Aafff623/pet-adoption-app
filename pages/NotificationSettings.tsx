@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { loadLocalSettings, saveLocalSettings } from '../lib/utils/storage';
 
 interface NotificationItem {
   id: string;
@@ -15,26 +16,9 @@ interface NotificationGroup {
 
 const STORAGE_KEY = 'petconnect_notification_settings';
 
-const loadSettings = (): Record<string, boolean> => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-};
-
-const saveSettings = (settings: Record<string, boolean>) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // ignore storage errors
-  }
-};
-
 const NotificationSettings: React.FC = () => {
   const navigate = useNavigate();
-  const storedSettings = loadSettings();
+  const storedSettings = loadLocalSettings<Record<string, boolean>>(STORAGE_KEY, {});
 
   const [groups, setGroups] = useState<NotificationGroup[]>([
     {
@@ -89,7 +73,7 @@ const NotificationSettings: React.FC = () => {
           newSettings[item.id] = item.enabled;
         });
       });
-      saveSettings(newSettings);
+      saveLocalSettings(STORAGE_KEY, newSettings);
 
       return updated;
     });
@@ -110,7 +94,7 @@ const NotificationSettings: React.FC = () => {
           newSettings[item.id] = item.enabled;
         });
       });
-      saveSettings(newSettings);
+      saveLocalSettings(STORAGE_KEY, newSettings);
       return updated;
     });
   };

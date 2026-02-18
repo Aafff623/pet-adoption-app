@@ -12,11 +12,7 @@ import {
 } from '../lib/api/messages';
 import type { ChatMessage, Conversation } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-
-const formatTime = (isoString: string): string => {
-  const date = new Date(isoString);
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-};
+import { formatTime } from '../lib/utils/date';
 
 const ChatDetail: React.FC = () => {
   const { showToast } = useToast();

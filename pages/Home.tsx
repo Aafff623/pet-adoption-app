@@ -737,11 +737,6 @@ const Home: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* 无推荐宠物时的轮播占位数据提示 */}
-      {!carouselLoading && recommendedPets.length > 0 && currentPet === null && (
-        <div className="hidden" aria-hidden="true" />
-      )}
     </div>
   );
 };
