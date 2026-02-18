@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { submitAdoptionApplication } from '../lib/api/adoption';
+import { useToast } from '../contexts/ToastContext';
+import { submitAdoptionApplication, fetchUserApplicationForPet } from '../lib/api/adoption';
+import { getOrCreateSystemConversation, insertSystemReply } from '../lib/api/messages';
+import { fetchPetById } from '../lib/api/pets';
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -9,6 +12,7 @@ const AdoptionForm: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const petId = searchParams.get('petId') ?? '';
 
@@ -20,9 +24,28 @@ const AdoptionForm: React.FC = () => {
   const [hasExperience, setHasExperience] = useState(true);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showToast, setShowToast] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isFormValid, setIsFormValid] = useState(false);
+
+  useEffect(() => {
+    if (!petId) return;
+    const check = async () => {
+      if (user) {
+        const existing = await fetchUserApplicationForPet(user.id, petId);
+        if (existing) {
+          showToast('您已提交过申请，请等待审核结果');
+          navigate(-1);
+          return;
+        }
+      }
+      const pet = await fetchPetById(petId);
+      if (pet && pet.status !== 'available' && pet.status !== undefined) {
+        showToast('该宠物已不可领养');
+        navigate(-1);
+      }
+    };
+    check();
+  }, [petId, user, navigate, showToast]);
 
   useEffect(() => {
     const validName = name.trim().length > 0;
@@ -64,11 +87,12 @@ const AdoptionForm: React.FC = () => {
         hasExperience,
         message: message.trim(),
       });
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-        navigate('/messages');
-      }, 2000);
+      showToast('申请已成功提交！');
+      const systemConvId = await getOrCreateSystemConversation(user.id);
+      setTimeout(() => insertSystemReply(systemConvId, '您的领养申请已收到，我们正在审核中...'), 0);
+      setTimeout(() => navigate('/messages'), 2000);
+      setTimeout(() => insertSystemReply(systemConvId, '审核员已收到您的申请，正在核实信息，预计 1-3 个工作日完成审核。'), 3000);
+      setTimeout(() => insertSystemReply(systemConvId, '您的申请已进入最终审核阶段，结果将通过消息通知您，请耐心等待！'), 8000);
     } catch {
       setErrorMsg('提交失败，请稍后重试');
     } finally {
@@ -81,16 +105,6 @@ const AdoptionForm: React.FC = () => {
       {isLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[999]">
           <div className="w-16 h-16 border-4 border-white border-t-primary rounded-full animate-spin"></div>
-        </div>
-      )}
-
-      {showToast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full shadow-lg z-[998] fade-in"
-        >
-          申请已成功提交！
         </div>
       )}
 

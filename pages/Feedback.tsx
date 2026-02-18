@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { submitFeedback } from '../lib/api/feedback';
 
 const Feedback: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [description, setDescription] = useState('');
   const [contact, setContact] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -30,7 +32,8 @@ const Feedback: React.FC = () => {
     setErrorMsg('');
     try {
       await submitFeedback(user?.id ?? null, description.trim(), contact.trim());
-      navigate('/profile');
+      showToast('感谢您的反馈，我们会尽快处理');
+      setTimeout(() => navigate('/profile'), 1500);
     } catch {
       setErrorMsg('提交失败，请稍后重试');
     } finally {
