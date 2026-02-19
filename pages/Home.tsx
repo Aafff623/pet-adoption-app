@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
-import { fetchPetList, fetchRecommendedPets } from '../lib/api/pets';
+import { fetchPetList, fetchRecommendedPets, type FetchPetListParams } from '../lib/api/pets';
 import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
 import { DEFAULT_LOCATION } from '../lib/data/regions';
 import type { Pet } from '../types';
@@ -51,6 +51,10 @@ const Home: React.FC = () => {
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterUrgent, setFilterUrgent] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+  // 已应用的服务端筛选状态
+  const [appliedGender, setAppliedGender] = useState<'all' | 'male' | 'female'>('all');
+  const [appliedUrgent, setAppliedUrgent] = useState(false);
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [carouselFavoritedIds, setCarouselFavoritedIds] = useState<Set<string>>(new Set());
   const [carouselFavoriteLoading, setCarouselFavoriteLoading] = useState(false);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,23 +90,38 @@ const Home: React.FC = () => {
     return () => stopAutoPlay();
   }, [startAutoPlay, user]);
 
-  const loadData = useCallback(async (category: CategoryId) => {
-    setLoading(true);
-    try {
-      const petList = await fetchPetList(category);
-      const recommendedIds = new Set(recommendedPets.map(p => p.id));
-      setPets(petList.filter(p => !recommendedIds.has(p.id)));
-    } catch {
-      showToast('加载宠物列表失败，请重试');
-    } finally {
-      setLoading(false);
-    }
-  }, [recommendedPets, showToast]);
-
+  // 关键词 500ms 防抖
   useEffect(() => {
-    loadData(activeCategory);
+    const t = setTimeout(() => setDebouncedKeyword(searchKeyword), 500);
+    return () => clearTimeout(t);
+  }, [searchKeyword]);
+
+  // 服务端筛选：当分类 / 已应用筛选 / 防抖关键词任意变化时重新拉取
+  useEffect(() => {
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const params: FetchPetListParams = {
+          category: activeCategory,
+          gender: appliedGender !== 'all' ? appliedGender : undefined,
+          isUrgent: appliedUrgent || undefined,
+          keyword: debouncedKeyword || undefined,
+        };
+        const petList = await fetchPetList(params);
+        if (cancelled) return;
+        const recommendedIds = new Set(recommendedPets.map(p => p.id));
+        setPets(petList.filter(p => !recommendedIds.has(p.id)));
+      } catch {
+        if (!cancelled) showToast('加载宠物列表失败，请重试');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchData();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory]);
+  }, [activeCategory, appliedGender, appliedUrgent, debouncedKeyword, showToast]);
 
   const handleCarouselPrev = () => {
     stopAutoPlay();
@@ -118,17 +137,20 @@ const Home: React.FC = () => {
 
   const handleLocationSelect = (loc: LocationOption) => {
     setSelectedLocation(loc);
-    setLocationSearch('');
     setShowLocationSheet(false);
   };
 
   const handleApplyFilter = () => {
+    setAppliedGender(filterGender);
+    setAppliedUrgent(filterUrgent);
     setShowFilterSheet(false);
   };
 
   const handleResetFilter = () => {
     setFilterGender('all');
     setFilterUrgent(false);
+    setAppliedGender('all');
+    setAppliedUrgent(false);
   };
 
   const handleCarouselFavoriteToggle = async (e: React.MouseEvent, pet: Pet) => {
@@ -161,23 +183,6 @@ const Home: React.FC = () => {
       setCarouselFavoriteLoading(false);
     }
   };
-
-  const matchesSearch = (pet: Pet) => {
-    if (!searchKeyword.trim()) return true;
-    const kw = searchKeyword.trim().toLowerCase();
-    return (
-      pet.name.toLowerCase().includes(kw) ||
-      pet.breed.toLowerCase().includes(kw) ||
-      (pet.description?.toLowerCase().includes(kw) ?? false)
-    );
-  };
-
-  const filteredPets = pets.filter(pet => {
-    if (filterGender !== 'all' && pet.gender !== filterGender) return false;
-    if (filterUrgent && !pet.isUrgent) return false;
-    if (!matchesSearch(pet)) return false;
-    return true;
-  });
 
   const currentPet = recommendedPets[carouselIndex] ?? null;
 
@@ -364,7 +369,7 @@ const Home: React.FC = () => {
         <section ref={newArrivalsRef}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">新到伙伴</h2>
-            {(filterGender !== 'all' || filterUrgent || searchKeyword.trim()) && (
+            {(appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
               <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
                 已筛选
               </span>
@@ -376,14 +381,14 @@ const Home: React.FC = () => {
                 <div key={i} className="break-inside-avoid bg-gray-100 dark:bg-zinc-800 rounded-2xl h-52 animate-pulse" />
               ))}
             </div>
-          ) : filteredPets.length === 0 ? (
+          ) : pets.length === 0 ? (
             <div className="text-center py-16 text-gray-400 dark:text-zinc-500">
               <span className="material-icons text-5xl mb-2">search_off</span>
-              <p className="text-sm">{searchKeyword.trim() ? `未找到与「${searchKeyword.trim()}」匹配的宠物` : '暂无该分类的宠物'}</p>
+              <p className="text-sm">{debouncedKeyword.trim() ? `未找到与「${debouncedKeyword.trim()}」匹配的宠物` : '暂无该分类的宠物'}</p>
             </div>
           ) : (
             <div className="columns-2 gap-4 space-y-4">
-              {filteredPets.map((pet) => (
+              {pets.map((pet) => (
                 <div
                   key={pet.id}
                   onClick={() => navigate(`/pet/${pet.id}`)}

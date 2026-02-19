@@ -27,7 +27,8 @@ export interface Pet {
     training: string;
   };
   category?: 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
-  status?: 'available' | 'adopted' | 'pending';
+  status?: 'available' | 'adopted' | 'pending' | 'pending_review';
+  userId?: string | null;
 }
 
 // ============================================================
@@ -48,6 +49,7 @@ export interface ChatMessage {
   conversationId: string;
   content: string;
   isSelf: boolean;
+  senderId?: string | null;
   createdAt: string;
 }
 
@@ -93,7 +95,9 @@ export interface Verification {
   userId: string;
   realName: string;
   idType: string;
-  idNumber: string;
+  idNumber?: string | null;
+  idNumberHash?: string | null;
+  idNumberLast4?: string | null;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   updatedAt: string;
@@ -107,6 +111,7 @@ export type AgentType = 'pet_expert' | 'emotional_counselor';
 export interface Conversation {
   id: string;
   userId: string;
+  otherUserId?: string | null;
   otherUserName: string;
   otherUserAvatar: string;
   lastMessage: string;
@@ -125,4 +130,18 @@ export interface TrashedGroup {
   messageCount: number;
   trashedAt: string;
   expiresAt: string;
+}
+
+// ============================================================
+// 举报类型
+// ============================================================
+export interface Report {
+  id: string;
+  reporterId: string;
+  targetType: 'user' | 'pet' | 'message';
+  targetId: string;
+  reason: string;
+  detail?: string;
+  status: 'pending' | 'reviewed' | 'resolved';
+  createdAt: string;
 }

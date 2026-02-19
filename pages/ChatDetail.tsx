@@ -14,9 +14,14 @@ import {
 import type { ChatMessage, Conversation } from '../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { formatTime } from '../lib/utils/date';
-import { pickReply } from '../lib/utils/autoReply';
 import { generateAgentReply, getLlmDebugInfo } from '../lib/api/llm';
 import { shouldAllowAI } from '../lib/utils/aiGuard';
+import { submitReport, blockUser, checkIsBlocked } from '../lib/api/reports';
+
+type UIChatMessage = ChatMessage & {
+  pending?: boolean;
+  failed?: boolean;
+};
 
 const ChatDetail: React.FC = () => {
   const { showToast } = useToast();
@@ -24,7 +29,7 @@ const ChatDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<UIChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -33,6 +38,14 @@ const ChatDetail: React.FC = () => {
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+  // 举报相关
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  // 屏蔽相关
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const lastAiReplyTimeRef = useRef<number | null>(null);
@@ -44,13 +57,18 @@ const ChatDetail: React.FC = () => {
       setLoading(true);
       try {
         const [messages, convList] = await Promise.all([
-          fetchChatMessages(id),
+          fetchChatMessages(id, user.id),
           fetchConversations(user.id),
         ]);
         const conv = convList.find(c => c.id === id) ?? null;
         setConversation(conv);
         setChatMessages(messages);
         await markConversationRead(id);
+        // 检查是否已屏蔽对方
+        if (conv?.otherUserId) {
+          const blocked = await checkIsBlocked(user.id, conv.otherUserId);
+          setIsBlocked(blocked);
+        }
       } catch {
         showToast('加载聊天记录失败，请重试');
       } finally {
@@ -117,51 +135,62 @@ const ChatDetail: React.FC = () => {
 
     const text = inputMessage.trim();
     const convId = id;
-    const isSystemConv = conversation?.isSystem ?? false;
+    const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const now = new Date().toISOString();
+
     setInputMessage('');
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: optimisticId,
+        conversationId: convId,
+        content: text,
+        isSelf: true,
+        senderId: user?.id ?? null,
+        createdAt: now,
+        pending: true,
+      },
+    ]);
     setSending(true);
 
     try {
-      const sent = await sendChatMessage(id, text);
+      const sent = await sendChatMessage(id, text, user?.id);
       setChatMessages(prev => {
-        const exists = prev.some(m => m.id === sent.id);
-        if (exists) return prev;
-        return [...prev, sent];
+        const withoutOptimistic = prev.filter(m => m.id !== optimisticId);
+        const exists = withoutOptimistic.some(m => m.id === sent.id);
+        if (exists) return withoutOptimistic;
+        return [...withoutOptimistic, sent];
       });
 
       const agentType = conversation?.agentType;
       const isAIConv = agentType === 'pet_expert' || agentType === 'emotional_counselor';
 
-      if (isAIConv || !isSystemConv) {
-        const delayMs = isAIConv ? 800 + Math.random() * 1200 : 2000 + Math.random() * 3000;
+      if (isAIConv && agentType) {
+        const delayMs = 180 + Math.random() * 220;
         setTimeout(async () => {
           try {
-            let reply: string;
-            if (isAIConv && agentType) {
-              const recentUserContents = [
-                ...chatMessages.filter(m => m.isSelf).map(m => m.content),
-                text,
-              ].slice(-3);
-              const guard = shouldAllowAI(text, lastAiReplyTimeRef.current, recentUserContents);
-              if (!guard.allow && guard.fallback) {
-                reply = guard.fallback;
-              } else {
-                const history = chatMessages.slice(-20).map(m => ({
-                  role: m.isSelf ? ('user' as const) : ('model' as const),
-                  content: m.content,
-                }));
-                const aiReply = await generateAgentReply(agentType, text, history);
-                if (aiReply === null) {
-                  const debug = getLlmDebugInfo();
-                  console.warn('[PetConnect AI] 回复失败，便于排查:', debug);
-                }
-                reply = aiReply ?? '抱歉，我这边有点卡，稍后再试～';
-                if (aiReply) lastAiReplyTimeRef.current = Date.now();
-              }
-            } else {
-              reply = pickReply(text);
+            const recentUserContents = [
+              ...chatMessages.filter(m => m.isSelf).map(m => m.content),
+              text,
+            ].slice(-3);
+            const guard = shouldAllowAI(text, lastAiReplyTimeRef.current, recentUserContents);
+            if (!guard.allow) {
+              return;
             }
-            const replyMsg = await insertSystemReply(convId, reply);
+
+            const history = chatMessages.slice(-20).map(m => ({
+              role: m.isSelf ? ('user' as const) : ('model' as const),
+              content: m.content,
+            }));
+            const aiReply = await generateAgentReply(agentType, text, history);
+            if (aiReply === null) {
+              const debug = getLlmDebugInfo();
+              console.warn('[PetConnect AI] 回复失败，便于排查:', debug);
+              return;
+            }
+
+            lastAiReplyTimeRef.current = Date.now();
+            const replyMsg = await insertSystemReply(convId, aiReply);
             setChatMessages(prev => {
               const exists = prev.some(m => m.id === replyMsg.id);
               if (exists) return prev;
@@ -174,7 +203,10 @@ const ChatDetail: React.FC = () => {
         }, delayMs);
       }
     } catch {
-      setInputMessage(text);
+      setChatMessages(prev =>
+        prev.map(m => (m.id === optimisticId ? { ...m, pending: false, failed: true } : m))
+      );
+      setInputMessage(prev => (prev ? prev : text));
       showToast('消息发送失败，请重试');
     } finally {
       setSending(false);
@@ -263,7 +295,7 @@ const ChatDetail: React.FC = () => {
             }`}>
               <p>{msg.content}</p>
               <p className={`text-[10px] mt-1 ${msg.isSelf ? 'text-black/50 text-right' : 'text-gray-400 dark:text-zinc-500'}`}>
-                {formatTime(msg.createdAt)}
+                {msg.failed ? '发送失败' : msg.pending ? '发送中…' : formatTime(msg.createdAt)}
               </p>
             </div>
           </div>
@@ -368,8 +400,8 @@ const ChatDetail: React.FC = () => {
               {[
                 { icon: 'delete_sweep', label: '清空聊天记录', color: 'text-gray-700 dark:text-zinc-300', action: handleClearChatClick },
                 { icon: 'restore_from_trash', label: '消息回收站', color: 'text-blue-500', action: () => { setShowMoreMenu(false); navigate('/recycle-bin'); } },
-                { icon: 'flag', label: '举报该用户', color: 'text-orange-500', action: () => setShowMoreMenu(false) },
-                { icon: 'block', label: '屏蔽该用户', color: 'text-red-500', action: () => setShowMoreMenu(false) },
+                { icon: 'flag', label: '举报该用户', color: 'text-orange-500', action: () => { setShowMoreMenu(false); setShowReportModal(true); } },
+                { icon: 'block', label: isBlocked ? '已屏蔽' : '屏蔽该用户', color: isBlocked ? 'text-gray-400' : 'text-red-500', action: () => { setShowMoreMenu(false); setShowBlockConfirm(true); } },
               ].map(item => (
                 <button
                   key={item.icon}
@@ -492,6 +524,133 @@ const ChatDetail: React.FC = () => {
                 className="w-full h-12 bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 font-bold rounded-2xl hover:bg-gray-200 dark:hover:bg-zinc-600 active:scale-[0.98] transition-all"
               >
                 关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 举报弹窗 */}
+      {showReportModal && (
+        <div
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[1001] flex items-end justify-center"
+          onClick={() => !reportSubmitting && setShowReportModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">举报该用户</h3>
+            <div className="space-y-2">
+              {['发布违规内容', '骚扰或威胁', '欺诈行为', '虚假信息', '其他'].map(reason => (
+                <button
+                  key={reason}
+                  onClick={() => setReportReason(reason)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    reportReason === reason
+                      ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
+                      : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300'
+                  }`}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowReportModal(false)}
+                disabled={reportSubmitting}
+                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                disabled={!reportReason || reportSubmitting}
+                onClick={async () => {
+                  if (!user || !conversation?.otherUserId) return;
+                  setReportSubmitting(true);
+                  try {
+                    await submitReport({
+                      reporterId: user.id,
+                      targetType: 'user',
+                      targetId: conversation.otherUserId,
+                      reason: reportReason,
+                    });
+                    setShowReportModal(false);
+                    setReportReason('');
+                    showToast('举报已提交，感谢你的反馈');
+                  } catch {
+                    showToast('提交失败，请稍后重试');
+                  } finally {
+                    setReportSubmitting(false);
+                  }
+                }}
+                className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+              >
+                {reportSubmitting ? '提交中...' : '提交举报'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 屏蔽确认弹窗 */}
+      {showBlockConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[1001] flex items-end justify-center"
+          onClick={() => !blockLoading && setShowBlockConfirm(false)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-3">
+                <span className="material-icons-round text-red-500 text-2xl">block</span>
+              </div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">
+                {isBlocked ? '取消屏蔽' : '屏蔽该用户'}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">
+                {isBlocked
+                  ? '取消屏蔽后，该用户可以再次向你发送消息。'
+                  : '屏蔽后，你将不会再收到该用户的消息。'}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBlockConfirm(false)}
+                disabled={blockLoading}
+                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                disabled={blockLoading}
+                onClick={async () => {
+                  if (!user || !conversation?.otherUserId) return;
+                  setBlockLoading(true);
+                  try {
+                    if (isBlocked) {
+                      const { unblockUser } = await import('../lib/api/reports');
+                      await unblockUser(user.id, conversation.otherUserId);
+                      setIsBlocked(false);
+                      showToast('已取消屏蔽');
+                    } else {
+                      await blockUser(user.id, conversation.otherUserId);
+                      setIsBlocked(true);
+                      showToast('已屏蔽该用户');
+                    }
+                    setShowBlockConfirm(false);
+                  } catch {
+                    showToast('操作失败，请稍后重试');
+                  } finally {
+                    setBlockLoading(false);
+                  }
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {blockLoading ? '处理中...' : isBlocked ? '确认取消' : '确认屏蔽'}
               </button>
             </div>
           </div>

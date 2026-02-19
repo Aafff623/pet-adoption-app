@@ -10,9 +10,13 @@ const maskName = (name: string): string => {
   return name[0] + '*'.repeat(name.length - 1);
 };
 
-const maskIdNumber = (idNumber: string): string => {
-  if (idNumber.length <= 6) return idNumber;
-  return idNumber.slice(0, 4) + '*'.repeat(idNumber.length - 8) + idNumber.slice(-4);
+/** 使用 last4 展示脆敏号码 */
+const maskIdDisplay = (last4?: string | null, legacyIdNumber?: string | null): string => {
+  if (last4) return `****${last4}`;
+  if (legacyIdNumber && legacyIdNumber.length > 4) {
+    return legacyIdNumber.slice(0, 4) + '*'.repeat(legacyIdNumber.length - 8) + legacyIdNumber.slice(-4);
+  }
+  return '****';
 };
 
 const Verification: React.FC = () => {
@@ -140,7 +144,7 @@ const Verification: React.FC = () => {
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-500">证件号码</span>
-                <span className="font-medium text-gray-900">{maskIdNumber(verification.idNumber)}</span>
+                <span className="font-medium text-gray-900">{maskIdDisplay(verification.idNumberLast4, verification.idNumber)}</span>
               </div>
             </div>
 

@@ -195,6 +195,23 @@ const Profile: React.FC = () => {
         <div className="px-6 space-y-4">
           <div className="bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-700">
             <button
+              onClick={() => navigate('/adoption-progress')}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group border-b border-gray-50 dark:border-zinc-700"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-all duration-300">
+                  <span className="material-icons-round">assignment</span>
+                </div>
+                <div className="flex flex-col items-start">
+                  <span className="font-medium text-gray-800 dark:text-zinc-200 text-base">我的申请</span>
+                  {applyingCount > 0 && (
+                    <span className="text-xs text-primary mt-0.5">{applyingCount} 个申请审核中</span>
+                  )}
+                </div>
+              </div>
+              <span className="material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+            </button>
+            <button
               onClick={() => navigate('/my-pets')}
               className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group border-b border-gray-50 dark:border-zinc-700"
             >
@@ -203,6 +220,18 @@ const Profile: React.FC = () => {
                   <span className="material-icons-round">pets</span>
                 </div>
                 <span className="font-medium text-gray-800 dark:text-zinc-200 text-base">我的宠物</span>
+              </div>
+              <span className="material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+            </button>
+            <button
+              onClick={() => navigate('/publish-pet')}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group border-b border-gray-50 dark:border-zinc-700"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-all duration-300">
+                  <span className="material-icons-round">add_circle_outline</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200 text-base">发布送养</span>
               </div>
               <span className="material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
             </button>

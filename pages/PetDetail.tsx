@@ -4,6 +4,7 @@ import { fetchPetById } from '../lib/api/pets';
 import { fetchUserApplicationForPet } from '../lib/api/adoption';
 import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
 import { createOrFindConversation } from '../lib/api/messages';
+import { submitReport } from '../lib/api/reports';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import type { Pet, AdoptionApplication } from '../types';
@@ -29,6 +30,9 @@ const PetDetail: React.FC = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const [storyExpanded, setStoryExpanded] = useState(false);
   const [showContactSheet, setShowContactSheet] = useState(false);
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -152,6 +156,13 @@ const PetDetail: React.FC = () => {
             <span className={`material-icons-round text-2xl ${isFavorited ? 'text-red-500' : 'group-hover:text-red-500 transition-colors'}`}>
               {isFavorited ? 'favorite' : 'favorite_border'}
             </span>
+          </button>
+          <button
+            onClick={() => setShowReportSheet(true)}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md hover:bg-black/30 transition-colors pointer-events-auto active:scale-95 cursor-pointer"
+            aria-label="举报该宠物"
+          >
+            <span className="material-icons-round text-white text-xl">flag</span>
           </button>
         </div>
 
@@ -365,6 +376,70 @@ const PetDetail: React.FC = () => {
                   <span>拨打电话</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 举报宠物弹窗 */}
+      {showReportSheet && (
+        <div
+          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[999] flex items-end justify-center"
+          onClick={() => !reportSubmitting && setShowReportSheet(false)}
+        >
+          <div
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-gray-900 dark:text-zinc-100">举报该宠物信息</h3>
+            <div className="space-y-2">
+              {['信息与图片不符', '疑似骗局', '重复发布', '虐待动物', '其他'].map(reason => (
+                <button
+                  key={reason}
+                  onClick={() => setReportReason(reason)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    reportReason === reason
+                      ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
+                      : 'bg-gray-50 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300'
+                  }`}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowReportSheet(false)}
+                disabled={reportSubmitting}
+                className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 text-gray-700 dark:text-zinc-300 font-medium disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                disabled={!reportReason || reportSubmitting || !user}
+                onClick={async () => {
+                  if (!user || !pet) return;
+                  setReportSubmitting(true);
+                  try {
+                    await submitReport({
+                      reporterId: user.id,
+                      targetType: 'pet',
+                      targetId: pet.id,
+                      reason: reportReason,
+                    });
+                    setShowReportSheet(false);
+                    setReportReason('');
+                    showToast('举报已提交，感谢你的反馈');
+                  } catch {
+                    showToast('提交失败，请稍后重试');
+                  } finally {
+                    setReportSubmitting(false);
+                  }
+                }}
+                className="flex-1 py-3 rounded-xl bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+              >
+                {reportSubmitting ? '提交中...' : '提交举报'}
+              </button>
             </div>
           </div>
         </div>

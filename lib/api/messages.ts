@@ -8,6 +8,7 @@ const TRASH_RETENTION_DAYS = 3;
 const mapRowToConversation = (row: Record<string, unknown>): Conversation => ({
   id: row.id as string,
   userId: row.user_id as string,
+  otherUserId: (row.other_user_id as string | null) ?? null,
   otherUserName: row.other_user_name as string,
   otherUserAvatar: row.other_user_avatar as string,
   lastMessage: row.last_message as string,
@@ -18,13 +19,21 @@ const mapRowToConversation = (row: Record<string, unknown>): Conversation => ({
   createdAt: row.created_at as string,
 });
 
-const mapRowToChatMessage = (row: Record<string, unknown>): ChatMessage => ({
-  id: row.id as string,
-  conversationId: row.conversation_id as string,
-  content: row.content as string,
-  isSelf: row.is_self as boolean,
-  createdAt: row.created_at as string,
-});
+const mapRowToChatMessage = (row: Record<string, unknown>, currentUserId?: string): ChatMessage => {
+  const senderId = (row.sender_id as string | null | undefined) ?? null;
+  const isSelf =
+    senderId && currentUserId
+      ? senderId === currentUserId
+      : (row.is_self as boolean);
+  return {
+    id: row.id as string,
+    conversationId: row.conversation_id as string,
+    content: row.content as string,
+    isSelf,
+    senderId,
+    createdAt: row.created_at as string,
+  };
+};
 
 export const fetchConversations = async (userId: string): Promise<Conversation[]> => {
   const { data, error } = await supabase
@@ -37,7 +46,7 @@ export const fetchConversations = async (userId: string): Promise<Conversation[]
   return data.map(row => mapRowToConversation(row as Record<string, unknown>));
 };
 
-export const fetchChatMessages = async (conversationId: string): Promise<ChatMessage[]> => {
+export const fetchChatMessages = async (conversationId: string, currentUserId?: string): Promise<ChatMessage[]> => {
   const { data, error } = await supabase
     .from('chat_messages')
     .select('*')
@@ -46,24 +55,24 @@ export const fetchChatMessages = async (conversationId: string): Promise<ChatMes
     .order('created_at', { ascending: true });
 
   if (error || !data) return [];
-  return data.map(row => mapRowToChatMessage(row as Record<string, unknown>));
+  return data.map(row => mapRowToChatMessage(row as Record<string, unknown>, currentUserId));
 };
 
-export const sendChatMessage = async (conversationId: string, content: string): Promise<ChatMessage> => {
+export const sendChatMessage = async (conversationId: string, content: string, senderId?: string): Promise<ChatMessage> => {
   const { data, error } = await supabase
     .from('chat_messages')
-    .insert({ conversation_id: conversationId, content, is_self: true })
+    .insert({ conversation_id: conversationId, content, is_self: true, sender_id: senderId ?? null })
     .select()
     .single();
 
   if (error || !data) throw new Error(error?.message ?? '发送失败');
 
-  await supabase
+  void supabase
     .from('conversations')
     .update({ last_message: content, last_message_time: new Date().toISOString(), unread_count: 0 })
     .eq('id', conversationId);
 
-  return mapRowToChatMessage(data as Record<string, unknown>);
+  return mapRowToChatMessage(data as Record<string, unknown>, senderId);
 };
 
 export const insertSystemReply = async (conversationId: string, content: string): Promise<ChatMessage> => {
@@ -179,8 +188,40 @@ export const getOrCreateAIConversation = async (
 export const createOrFindConversation = async (
   userId: string,
   otherUserName: string,
-  otherUserAvatar: string
+  otherUserAvatar: string,
+  otherUserId?: string
 ): Promise<string> => {
+  // P2P 模式：优先按真实 user ID 匹配，避免同名用户干扰
+  if (otherUserId) {
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('other_user_id', otherUserId)
+      .eq('is_system', false)
+      .maybeSingle();
+
+    if (existing) return existing.id as string;
+
+    const { data: created, error: createError } = await supabase
+      .from('conversations')
+      .insert({
+        user_id: userId,
+        other_user_id: otherUserId,
+        other_user_name: otherUserName,
+        other_user_avatar: otherUserAvatar || null,
+        last_message: '',
+        unread_count: 0,
+        is_system: false,
+      })
+      .select('id')
+      .single();
+
+    if (createError || !created) throw new Error(createError?.message ?? '创建会话失败');
+    return created.id as string;
+  }
+
+  // 兴趣匹配展示模式（种子数据富家无 user_id，退化到名字匹配）
   const { data: existing, error: findError } = await supabase
     .from('conversations')
     .select('id')

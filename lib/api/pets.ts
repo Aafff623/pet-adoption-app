@@ -25,17 +25,46 @@ const mapRowToPet = (row: Record<string, unknown>): Pet => ({
   },
   category: row.category as PetCategory,
   status: row.status as Pet['status'],
+  userId: (row.user_id as string | null) ?? null,
 });
 
-export const fetchPetList = async (category: PetCategory = 'all'): Promise<Pet[]> => {
+export interface FetchPetListParams {
+  category?: PetCategory;
+  gender?: 'male' | 'female' | 'all';
+  isUrgent?: boolean;
+  keyword?: string;
+  location?: string;
+}
+
+export const fetchPetList = async (
+  categoryOrParams: PetCategory | FetchPetListParams = 'all'
+): Promise<Pet[]> => {
+  const params: FetchPetListParams =
+    typeof categoryOrParams === 'string'
+      ? { category: categoryOrParams }
+      : categoryOrParams;
+
   let query = supabase
     .from('pets')
     .select('*')
     .eq('status', 'available')
     .order('created_at', { ascending: false });
 
-  if (category !== 'all') {
-    query = query.eq('category', category);
+  if (params.category && params.category !== 'all') {
+    query = query.eq('category', params.category);
+  }
+  if (params.gender && params.gender !== 'all') {
+    query = query.eq('gender', params.gender);
+  }
+  if (params.isUrgent) {
+    query = query.eq('is_urgent', true);
+  }
+  if (params.keyword && params.keyword.trim()) {
+    const kw = `%${params.keyword.trim()}%`;
+    query = query.or(`name.ilike.${kw},breed.ilike.${kw},description.ilike.${kw}`);
+  }
+  if (params.location && params.location.trim()) {
+    query = query.ilike('location', `%${params.location.trim()}%`);
   }
 
   const { data, error } = await query;
@@ -105,4 +134,68 @@ export const fetchAdoptedPets = async (userId: string): Promise<Pet[]> => {
   return data
     .filter((row: { pets: unknown }) => row.pets)
     .map((row: { pets: unknown }) => mapRowToPet(row.pets as Record<string, unknown>));
+};
+
+/** 用户发布宠物（UGC 送养） */
+export interface AddPetParams {
+  name: string;
+  breed: string;
+  ageText: string;
+  gender: 'male' | 'female';
+  category: PetCategory;
+  location: string;
+  weight: string;
+  description: string;
+  story: string;
+  isUrgent: boolean;
+  price: number;
+  tags: string[];
+  imageUrl: string;
+  fosterParentName: string;
+  fosterParentAvatar: string;
+}
+
+export const addPet = async (params: AddPetParams, userId: string): Promise<Pet> => {
+  const newId = crypto.randomUUID();
+  const { data, error } = await supabase
+    .from('pets')
+    .insert({
+      id: newId,
+      name: params.name,
+      breed: params.breed,
+      age_text: params.ageText,
+      gender: params.gender,
+      category: params.category,
+      location: params.location,
+      distance: '未知',
+      weight: params.weight,
+      description: params.description,
+      story: params.story,
+      is_urgent: params.isUrgent,
+      price: params.price,
+      tags: params.tags,
+      image_url: params.imageUrl,
+      foster_parent_name: params.fosterParentName,
+      foster_parent_avatar: params.fosterParentAvatar,
+      status: 'pending_review',
+      user_id: userId,
+      health: {},
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? '发布失败');
+  return mapRowToPet(data as Record<string, unknown>);
+};
+
+/** 查询用户自己发布的宠物 */
+export const fetchMyPublishedPets = async (userId: string): Promise<Pet[]> => {
+  const { data, error } = await supabase
+    .from('pets')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data.map(row => mapRowToPet(row as Record<string, unknown>));
 };
