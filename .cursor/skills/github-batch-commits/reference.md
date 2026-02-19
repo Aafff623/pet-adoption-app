@@ -2,6 +2,11 @@
 
 ## 提交信息中文乱码（Windows/PowerShell）
 
+> **推荐方案：新提交一律使用英文，从源头避免编码问题。**  
+> 格式：`<type>(<scope>): <description in English>`  
+> 例如：`chore(supabase): add migrations and seed data`  
+> 以下内容为历史乱码修正或极少数确需非英文时的备用方案。
+
 ### 现象
 
 在 Windows PowerShell 下使用 `git commit -m "feat: 中文描述"` 时，中文可能被编码错误，提交历史中显示为乱码（如 `娣诲姞` 代替 `添加`）。
@@ -111,7 +116,7 @@ Changes to be committed:
 | 仅配置文件变更 | 单独 `chore(config)` 或并入相关功能 |
 | 大量小改动分散 | 按目录优先分组，再按语义微调 |
 | 迁移 SQL 与 API 代码 | 若为同一 feature，可同组；否则 schema 先提交 |
-| **中文提交信息乱码** | 使用 `git commit -F <文件>` 从 UTF-8 文件读取，见上文 |
+| **提交信息须为英文** | 不得使用中文；若已产生乱码，用 `git commit -F <文件>` 修正，见上文 |
 
 ---
 

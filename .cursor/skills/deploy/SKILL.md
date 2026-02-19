@@ -87,7 +87,7 @@ description: Guides Vercel deployment and PWA setup for petconnect-app. Use when
 
 | 坑点 | 快速处理 |
 |------|----------|
-| 提交信息乱码 | `git commit -F <文件>`，见 [github-batch-commits](../github-batch-commits/SKILL.md) |
+| 提交信息乱码 | 提交信息请使用英文；若已乱码，用 `git commit -F <文件>` 修正，见 [github-batch-commits](../github-batch-commits/SKILL.md) |
 | AI 回复失败 | 配置 VITE_LLM_* 环境变量并 Redeploy |
 | 注册成功登录失败 | Supabase 邮箱未验证，查 auth.users.email_confirmed_at |
 | 登录重定向失败 | Supabase Redirect URLs 添加 Vercel 域名 |

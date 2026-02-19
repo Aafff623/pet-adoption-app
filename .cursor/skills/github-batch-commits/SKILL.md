@@ -7,6 +7,13 @@ description: Analyzes staged and modified files, groups them by feature, and gui
 
 **触发词**：用户说「提交到Github」「提交到 GitHub」「push to GitHub」等时，执行本流程。
 
+## 强制许可规则（必须遵守）
+
+- 在执行任何 `git commit` / `git push` 前，**必须先获得用户明确许可**（例如“确认提交”“可以 push”）。
+- 若用户仅表达“想提交”或“看看变更”，默认只做分析与分组，**不得直接提交/推送**。
+- 每一批提交前都需要再次确认；未经许可，不得继续下一批提交。
+- 若用户未明确授权，流程止步于“分组建议 + 提交信息草案”。
+
 ## 适用场景
 
 - 多开对话完成不同功能后，暂存区积累大量文件
@@ -60,6 +67,21 @@ git status
 
 ### Step 4：分批提交
 
+#### 提交信息规范（强制）
+
+> **Commit messages must be in English only.**  
+> 提交信息必须使用英文，禁止使用中文，以避免 Windows/PowerShell 下的编码乱码。
+
+```text
+Commit message rules:
+- Language  : English only (no Chinese)
+- Format    : <type>(<scope>): <short description>
+- Types     : feat | fix | refactor | chore | docs | style | test
+- Description: present tense, lowercase (except proper nouns)
+  Good: "feat(auth): add Google sign-in"
+  Bad : "feat(auth): 添加谷歌登录"
+```
+
 对每个分组依次执行：
 
 ```bash
@@ -69,21 +91,21 @@ git reset HEAD
 # 2. 仅暂存当前分组文件
 git add <file1> <file2> ...
 
-# 3. 提交（使用 Conventional Commits 风格）
-git commit -m "feat(scope): 简短描述"
+# 3. 提交（使用 Conventional Commits 风格，英文描述）
+git commit -m "feat(scope): short description in English"
 ```
 
-**注意**：若提交信息含中文且在 Windows/PowerShell 下出现乱码，改用 `git commit -F <文件>` 从 UTF-8 文件读取，详见 [reference.md#提交信息中文乱码](reference.md#提交信息中文乱码windowspowershell)。
+**注意**：提交信息须使用英文，不得使用中文，以避免乱码。若确需非 ASCII 字符，可使用 `git commit -F <UTF-8 文件>`，详见 [reference.md](reference.md)。
 
 **提交信息格式**（Conventional Commits）：
 
-| 类型 | 用途 |
-|------|------|
-| `feat(scope)` | 新功能 |
-| `fix(scope)` | 修复 |
-| `refactor(scope)` | 重构 |
-| `chore(scope)` | 配置、依赖、脚本 |
-| `docs(scope)` | 文档 |
+| 类型 | 用途 | 示例（英文） |
+|------|------|-------------|
+| `feat(scope)` | 新功能 | `feat(auth): add Google sign-in` |
+| `fix(scope)` | 修复 | `fix(api): handle null response` |
+| `refactor(scope)` | 重构 | `refactor(utils): simplify date helpers` |
+| `chore(scope)` | 配置、依赖、脚本 | `chore(config): update env example` |
+| `docs(scope)` | 文档 | `docs(readme): update deploy steps` |
 
 ### Step 5：重复直至完成
 

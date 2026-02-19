@@ -4,7 +4,7 @@
 
 | 坑点 | 现象 | 原因 | 解决方案 |
 |------|------|------|----------|
-| 提交信息乱码 | 中文显示为乱码（如 娣诲姞） | Windows PowerShell 编码与 Git 不一致 | 用 `git commit -F <文件>` 从 UTF-8 文件读取，详见 [github-batch-commits](../github-batch-commits/reference.md#提交信息中文乱码windowspowershell) |
+| 提交信息乱码 | 中文显示为乱码（如 娣诲姞） | Windows PowerShell 编码与 Git 不一致 | **提交信息请使用英文**，从源头避免编码问题；若已产生乱码，用 `git commit -F <文件>` 修正，详见 [github-batch-commits](../github-batch-commits/reference.md#提交信息中文乱码windowspowershell) |
 | AI 回复失败 | 显示「抱歉，我这边有点卡，稍后再试～」 | Vercel 未配置 LLM 环境变量 | 添加 VITE_LLM_PROVIDER 及对应 Key（VITE_DOUBAO_API_KEY 等），保存后 Redeploy |
 | 豆包调用失败 | 同上 | Model ID 格式错误或 API 返回 4xx/5xx | 检查 VITE_DOUBAO_MODEL_ID 为 ep-xxx 或预置 ID；打开控制台查看 [PetConnect Doubao] 日志 |
 | 注册成功登录失败 | 账密正确但登录报错 | Supabase 邮箱未验证 | 查 auth.users.email_confirmed_at 为 null；用户点邮件链接或 Supabase 关闭 Confirm email |
