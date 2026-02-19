@@ -166,7 +166,7 @@ const ChatDetail: React.FC = () => {
       const isAIConv = agentType === 'pet_expert' || agentType === 'emotional_counselor';
 
       if (isAIConv && agentType) {
-        const delayMs = 180 + Math.random() * 220;
+        const delayMs = 80 + Math.random() * 60;
         setTimeout(async () => {
           try {
             const recentUserContents = [

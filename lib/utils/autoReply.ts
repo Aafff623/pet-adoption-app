@@ -98,19 +98,6 @@ const DIALOGUE_DB: { keywords: string[]; replies: string[] }[] = [
   },
 ];
 
-const DEFAULT_REPLIES = [
-  '收到～稍后回复您哈～',
-  '好的，我看看再回您～',
-  '嗯嗯，记下了～',
-  '收到消息了，一会儿回～',
-  '好的好的～',
-  '稍等哈，我处理一下～',
-  '看到了，待会跟您说～',
-  '嗯，收到～',
-  '好的，稍候回复～',
-  '记下了，一会儿联系您～',
-];
-
 function randomPick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -119,7 +106,7 @@ const SHORT_MESSAGE_MAX_LEN = 6;
 
 export function pickReply(userMessage: string): string {
   const trimmed = userMessage.trim().toLowerCase();
-  if (!trimmed) return randomPick(DEFAULT_REPLIES);
+  if (!trimmed) return '';
 
   for (const group of DIALOGUE_DB) {
     const keywordMatched = group.keywords.some(kw => trimmed.includes(kw.toLowerCase()));
@@ -130,5 +117,5 @@ export function pickReply(userMessage: string): string {
     }
   }
 
-  return randomPick(DEFAULT_REPLIES);
+  return '';
 }
