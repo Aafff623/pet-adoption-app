@@ -145,3 +145,15 @@ export interface Report {
   status: 'pending' | 'reviewed' | 'resolved';
   createdAt: string;
 }
+
+// ============================================================
+// 宠物成长日志
+// ============================================================
+export interface PetLog {
+  id: string;
+  petId: string;
+  authorId: string;
+  content: string;
+  imageUrl?: string;
+  createdAt: string;
+}

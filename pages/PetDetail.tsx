@@ -5,9 +5,10 @@ import { fetchUserApplicationForPet } from '../lib/api/adoption';
 import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
 import { createOrFindConversation } from '../lib/api/messages';
 import { submitReport } from '../lib/api/reports';
+import { createPetLog, fetchPetLogs } from '../lib/api/petLogs';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import type { Pet, AdoptionApplication } from '../types';
+import type { Pet, AdoptionApplication, PetLog } from '../types';
 
 const PET_PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='62' font-size='40' text-anchor='middle'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E`;
 
@@ -15,6 +16,17 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
   const target = e.currentTarget;
   target.onerror = null;
   target.src = PET_PLACEHOLDER;
+};
+
+const formatLogDateTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 const PetDetail: React.FC = () => {
@@ -33,25 +45,33 @@ const PetDetail: React.FC = () => {
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [petLogs, setPetLogs] = useState<PetLog[]>([]);
+  const [petLogsLoading, setPetLogsLoading] = useState(false);
+  const [newPetLogContent, setNewPetLogContent] = useState('');
+  const [petLogSubmitting, setPetLogSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
     const loadPet = async () => {
       setLoading(true);
+      setPetLogsLoading(true);
       try {
-        const [foundPet, favorited, application] = await Promise.all([
+        const [foundPet, favorited, application, logs] = await Promise.all([
           fetchPetById(id),
           user ? checkIsFavorited(user.id, id) : Promise.resolve(false),
           user && id ? fetchUserApplicationForPet(user.id, id) : Promise.resolve(null),
+          fetchPetLogs(id),
         ]);
         setPet(foundPet);
         setIsFavorited(favorited);
         setUserApplication(application ?? null);
+        setPetLogs(logs);
       } catch {
         showToast('加载宠物详情失败，请重试');
       } finally {
         setLoading(false);
+        setPetLogsLoading(false);
       }
     };
 
@@ -110,6 +130,37 @@ const PetDetail: React.FC = () => {
       setFavoriteLoading(false);
     }
   };
+
+  const handleSubmitPetLog = async () => {
+    if (!pet || !user) {
+      navigate('/login');
+      return;
+    }
+
+    const content = newPetLogContent.trim();
+    if (!content) {
+      showToast('请输入成长日志内容');
+      return;
+    }
+
+    setPetLogSubmitting(true);
+    try {
+      const created = await createPetLog({
+        petId: pet.id,
+        authorId: user.id,
+        content,
+      });
+      setPetLogs(prev => [created, ...prev]);
+      setNewPetLogContent('');
+      showToast('成长日志已发布');
+    } catch {
+      showToast('发布失败，请确认你已通过领养审核');
+    } finally {
+      setPetLogSubmitting(false);
+    }
+  };
+
+  const canPostPetLog = Boolean(user && userApplication?.status === 'approved');
 
   if (loading) {
     return (
@@ -271,6 +322,58 @@ const PetDetail: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* 成长日志 */}
+        <div className="mb-6 mt-8">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-100 mb-4">成长日志</h2>
+
+          {canPostPetLog && (
+            <div className="mb-4 p-3 rounded-xl border border-gray-100 dark:border-zinc-600 bg-gray-50 dark:bg-zinc-700">
+              <textarea
+                value={newPetLogContent}
+                onChange={e => setNewPetLogContent(e.target.value)}
+                rows={3}
+                maxLength={300}
+                placeholder="分享一下 TA 最近的状态吧（最多 300 字）"
+                className="w-full resize-none rounded-lg border border-gray-200 dark:border-zinc-500 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-800 dark:text-zinc-100 outline-none focus:border-primary"
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-gray-400 dark:text-zinc-400">
+                  {newPetLogContent.length}/300
+                </span>
+                <button
+                  onClick={handleSubmitPetLog}
+                  disabled={petLogSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary text-black text-sm font-semibold disabled:opacity-50"
+                >
+                  {petLogSubmitting ? '发布中...' : '发布日志'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {petLogsLoading ? (
+            <div className="text-sm text-gray-500 dark:text-zinc-400">日志加载中...</div>
+          ) : petLogs.length === 0 ? (
+            <div className="text-sm text-gray-500 dark:text-zinc-400">暂无成长日志</div>
+          ) : (
+            <div className="space-y-3">
+              {petLogs.map(log => (
+                <div
+                  key={log.id}
+                  className="rounded-xl border border-gray-100 dark:border-zinc-600 p-3 bg-white dark:bg-zinc-700"
+                >
+                  <p className="text-sm text-gray-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                    {log.content}
+                  </p>
+                  <p className="mt-2 text-xs text-gray-400 dark:text-zinc-400">
+                    {formatLogDateTime(log.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 底部操作栏 */}
