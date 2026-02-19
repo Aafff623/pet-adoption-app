@@ -44,3 +44,14 @@ export const createPetLog = async (params: {
 
   return mapRowToPetLog(data as Record<string, unknown>);
 };
+
+export const deletePetLog = async (logId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('pet_logs')
+    .delete()
+    .eq('id', logId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+};
