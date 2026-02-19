@@ -29,9 +29,12 @@ PetConnect 是一款基于 Web 的宠物领养平台，旨在通过数字化手�
 | --- | --- |
 | 🔍 **浏览 & 筛选** | 按宠物类型（狗 / 猫 / 兔 / 鸟等）、所在城市多维度筛选 |
 | ❤️ **收藏管理** | 一键收藏心仪宠物，随时查看收藏列表 |
-| 📋 **领养申请** | 填写姓名、年龄、职业、住房情况、养宠经验等，提交正式申请 |
+| 📋 **领养申请** | 填写姓名、年龄、职业、住房情况、养宠经验等，提交正式申请；防重提交保护 |
 | 💬 **私信沟通** | 与送养人实时私信，支持消息记录持久化 |
-| 🏠 **我的宠物** | 管理自己发布的宠物信息 |
+| 🏠 **我的宠物** | 领养通过后管理已领养宠物，查看成长日志与回访任务 |
+| 📝 **宠物成长日志** | 领养人可发布图文日志，时间轴形式展示宠物成长历程，支持编辑 / 删除 |
+| 🗓 **领养回访任务** | 自动生成 7 天 / 30 天回访提醒，支持任务筛选（待办 / 逾期 / 已完成）及反馈记录 |
+| 🚨 **举报 & 屏蔽** | 举报违规内容（宠物 / 用户 / 消息），屏蔽不良用户 |
 | 👤 **个人资料** | 完善头像、昵称、联系方式等个人信息 |
 | 🔐 **实名认证** | 提交真实身份信息，提升平台可信度 |
 | 🌙 **主题设置** | 支持明 / 暗主题切换 |
@@ -103,6 +106,16 @@ VITE_GEMINI_API_KEY=your_gemini_api_key   # 可选，AI 智能体功能
 \i supabase/seed.sql
 ```
 
+然后依次执行以下增量迁移脚本（`supabase/migrations/` 目录）：
+
+| 文件 | 说明 |
+| --- | --- |
+| `add_pet_logs.sql` | 宠物成长日志表 + RLS 策略 |
+| `add_pet_logs_update_policy.sql` | 日志编辑权限 |
+| `add_follow_up_tasks.sql` | 领养回访任务表 + RLS 策略 |
+| `add_follow_up_template_key.sql` | 回访任务模板键（防重复自动生成） |
+| `add_reports_blocks.sql` | 举报 & 屏蔽表 + RLS 策略 |
+
 **5. 配置 Storage Bucket**
 
 1. 进入 Supabase Dashboard → Storage → Buckets
@@ -138,22 +151,35 @@ npm run dev
 
 ```
 petconnect-app/
-├── components/              # 公共 UI 组件（BottomNav 等）
+├── components/              # 公共 UI 组件
+│   ├── BottomNav.tsx        # 底部导航栏
+│   ├── PetLogTimeline.tsx   # 宠物成长日志时间轴（可复用）
+│   ├── AdoptionProgressTimeline.tsx  # 领养进度时间轴
+│   └── LocationPicker.tsx   # 地区选择器
 ├── contexts/                # React Context
-│   └── AuthContext.tsx      # 全局认证状态
+│   ├── AuthContext.tsx      # 全局认证状态
+│   ├── ThemeContext.tsx     # 主题（明/暗）
+│   └── ToastContext.tsx     # 全局提示消息
 ├── lib/                     # 业务逻辑层
 │   ├── api/                 # 模块化 API 封装
-│   │   ├── pets.ts          # 宠物相关
-│   │   ├── favorites.ts     # 收藏相关
-│   │   ├── adoption.ts      # 领养申请
-│   │   ├── messages.ts      # 消息私信
+│   │   ├── pets.ts          # 宠物列表 & 详情 & 我的发布
+│   │   ├── petLogs.ts       # 宠物成长日志 CRUD
+│   │   ├── followUps.ts     # 领养回访任务 + 自动生成模板
+│   │   ├── adoption.ts      # 领养申请（防重提交）
+│   │   ├── favorites.ts     # 收藏
+│   │   ├── messages.ts      # 消息 & 私信
+│   │   ├── reports.ts       # 举报 & 请求
 │   │   ├── feedback.ts      # 意见反馈
-│   │   └── verification.ts  # 实名认证
+│   │   ├── profile.ts       # 用户资料
+│   │   ├── verification.ts  # 实名认证
+│   │   └── gemini.ts        # AI 智能体接口
 │   └── supabase.ts          # Supabase 客户端初始化
 ├── pages/                   # 页面级组件
 │   ├── Home.tsx             # 首页（宠物列表 + 筛选）
-│   ├── PetDetail.tsx        # 宠物详情
+│   ├── PetDetail.tsx        # 宠物详情 + 成长日志
 │   ├── AdoptionForm.tsx     # 领养申请表单
+│   ├── AdoptionProgress.tsx # 我的申请（进度跟踪）
+│   ├── MyPets.tsx           # 我的宠物（日志 + 回访任务）
 │   ├── Favorites.tsx        # 收藏列表
 │   ├── Messages.tsx         # 消息列表
 │   ├── ChatDetail.tsx       # 私信对话
@@ -164,7 +190,13 @@ petconnect-app/
 ├── supabase/                # 数据库脚本
 │   ├── schema.sql           # 表结构 + RLS 策略 + 触发器
 │   ├── seed.sql             # 示例数据
-│   └── storage_policies.sql # Storage 上传权限策略
+│   ├── storage_policies.sql # Storage 上传权限策略
+│   └── migrations/          # 增量迁移脚本
+│       ├── add_pet_logs.sql
+│       ├── add_pet_logs_update_policy.sql
+│       ├── add_follow_up_tasks.sql
+│       ├── add_follow_up_template_key.sql
+│       └── add_reports_blocks.sql
 ├── types.ts                 # 全局 TypeScript 类型定义
 ├── App.tsx                  # 根组件 + 路由配置
 └── index.html               # HTML 入口

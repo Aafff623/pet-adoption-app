@@ -14,6 +14,16 @@ interface SubmitAdoptionParams {
 }
 
 export const submitAdoptionApplication = async (params: SubmitAdoptionParams): Promise<void> => {
+  // 先检查是否已有申请，防止重复提交
+  const { data: existingRows } = await supabase
+    .from('adoption_applications')
+    .select('id')
+    .eq('user_id', params.userId)
+    .eq('pet_id', params.petId)
+    .limit(1)
+    .maybeSingle();
+  if (existingRows) throw new Error('您已提交过该宠物的领养申请');
+
   const { error } = await supabase.from('adoption_applications').insert({
     user_id: params.userId,
     pet_id: params.petId,
@@ -39,7 +49,15 @@ export const fetchMyApplications = async (userId: string): Promise<AdoptionAppli
 
   if (error || !data) return [];
 
-  return data.map(row => ({
+  // 按 pet_id 去重，保留最新一条（created_at 最大的）
+  const seen = new Set<string>();
+  const deduped = data.filter(row => {
+    if (seen.has(row.pet_id)) return false;
+    seen.add(row.pet_id);
+    return true;
+  });
+
+  return deduped.map(row => ({
     id: row.id,
     userId: row.user_id,
     petId: row.pet_id,

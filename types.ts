@@ -157,3 +157,19 @@ export interface PetLog {
   imageUrl?: string;
   createdAt: string;
 }
+
+// ============================================================
+// 领养后回访任务
+// ============================================================
+export interface FollowUpTask {
+  id: string;
+  userId: string;
+  petId: string;
+  title: string;
+  templateKey?: string | null;
+  dueDate: string;
+  status: 'pending' | 'completed';
+  feedback?: string;
+  completedAt?: string | null;
+  createdAt: string;
+}

@@ -55,3 +55,23 @@ export const deletePetLog = async (logId: string): Promise<void> => {
     throw new Error(error.message);
   }
 };
+
+export const updatePetLog = async (params: {
+  logId: string;
+  content: string;
+}): Promise<PetLog> => {
+  const { data, error } = await supabase
+    .from('pet_logs')
+    .update({
+      content: params.content,
+    })
+    .eq('id', params.logId)
+    .select('*')
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? '更新成长日志失败');
+  }
+
+  return mapRowToPetLog(data as Record<string, unknown>);
+};

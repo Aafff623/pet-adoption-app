@@ -6,6 +6,7 @@ import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favori
 import { createOrFindConversation } from '../lib/api/messages';
 import { submitReport } from '../lib/api/reports';
 import { createPetLog, fetchPetLogs } from '../lib/api/petLogs';
+import PetLogTimeline from '../components/PetLogTimeline';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import type { Pet, AdoptionApplication, PetLog } from '../types';
@@ -16,17 +17,6 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
   const target = e.currentTarget;
   target.onerror = null;
   target.src = PET_PLACEHOLDER;
-};
-
-const formatLogDateTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 };
 
 const PetDetail: React.FC = () => {
@@ -354,24 +344,8 @@ const PetDetail: React.FC = () => {
 
           {petLogsLoading ? (
             <div className="text-sm text-gray-500 dark:text-zinc-400">日志加载中...</div>
-          ) : petLogs.length === 0 ? (
-            <div className="text-sm text-gray-500 dark:text-zinc-400">暂无成长日志</div>
           ) : (
-            <div className="space-y-3">
-              {petLogs.map(log => (
-                <div
-                  key={log.id}
-                  className="rounded-xl border border-gray-100 dark:border-zinc-600 p-3 bg-white dark:bg-zinc-700"
-                >
-                  <p className="text-sm text-gray-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap">
-                    {log.content}
-                  </p>
-                  <p className="mt-2 text-xs text-gray-400 dark:text-zinc-400">
-                    {formatLogDateTime(log.createdAt)}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <PetLogTimeline logs={petLogs} />
           )}
         </div>
       </div>
