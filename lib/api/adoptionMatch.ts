@@ -28,6 +28,103 @@ const mapRowToScore = (row: Record<string, unknown>): AdoptionMatchScore => ({
   createdAt: row.created_at as string,
 });
 
+const clampScore = (value: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 100) return 100;
+  return Math.round(value);
+};
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]);
+};
+
+const toRawPayload = (raw: MatchScoreRaw, source: 'quick_local_v1' | 'ai_refined_v1'): Record<string, unknown> => ({
+  source,
+  ...raw,
+});
+
+const saveScoreRaw = async (
+  raw: MatchScoreRaw,
+  userId: string,
+  petId: string,
+  applicationId?: string,
+  source: 'quick_local_v1' | 'ai_refined_v1' = 'ai_refined_v1'
+): Promise<AdoptionMatchScore> => {
+  const { data, error } = await supabase
+    .from('adoption_match_scores')
+    .insert({
+      user_id: userId,
+      pet_id: petId,
+      application_id: applicationId ?? null,
+      overall_score: clampScore(raw.overall_score),
+      stability_score: clampScore(raw.stability_score),
+      time_score: clampScore(raw.time_score),
+      cost_score: clampScore(raw.cost_score),
+      experience_score: clampScore(raw.experience_score),
+      allergy_risk_level: raw.allergy_risk_level,
+      summary: raw.summary,
+      risk_notes: raw.risk_notes || null,
+      suggestions: raw.suggestions || null,
+      raw_payload: toRawPayload(raw, source),
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return mapRowToScore(data as Record<string, unknown>);
+};
+
+const buildQuickMatchScore = (
+  pet: Pick<Pet, 'name' | 'breed' | 'category' | 'description'>,
+  questionnaire: MatchQuestionnaire
+): MatchScoreRaw => {
+  let stability = 55;
+  if (questionnaire.housingType.includes('自有')) stability += 20;
+  if (questionnaire.livingStatus.includes('独居')) stability += 8;
+  if (questionnaire.homeSize === '>100㎡') stability += 15;
+  if (questionnaire.homeSize === '50-100㎡') stability += 8;
+
+  let time = 40 + questionnaire.dailyFreeHours * 5;
+  if (questionnaire.workStyle === '远程') time += 15;
+  if (questionnaire.workStyle === '不规律') time -= 10;
+
+  let cost = 45;
+  if (questionnaire.monthlyBudget === '>1000') cost += 30;
+  if (questionnaire.monthlyBudget === '500-1000') cost += 15;
+  if (questionnaire.monthlyBudget === '<500') cost -= 5;
+
+  let experience = questionnaire.hasExperience ? 80 : 55;
+  if (questionnaire.hasOtherPets) experience += 6;
+
+  const isHighAllergyPet = pet.category === 'cat' || pet.category === 'bird';
+  let allergyRiskLevel: AllergyRiskLevel = 'low';
+  if (questionnaire.hasAllergy && isHighAllergyPet) allergyRiskLevel = 'high';
+  else if (questionnaire.hasAllergy) allergyRiskLevel = 'medium';
+
+  const overall = clampScore(stability * 0.32 + time * 0.28 + cost * 0.22 + experience * 0.18);
+
+  return {
+    overall_score: overall,
+    stability_score: clampScore(stability),
+    time_score: clampScore(time),
+    cost_score: clampScore(cost),
+    experience_score: clampScore(experience),
+    allergy_risk_level: allergyRiskLevel,
+    summary: `已为你生成快速匹配评分（${overall} 分），AI 正在后台精修更详细分析。`,
+    risk_notes: allergyRiskLevel !== 'low' ? '你填写了过敏相关信息，建议在接触前先做过敏评估。' : '',
+    suggestions: '可继续完善寄语与生活安排，系统会在后台更新更精准的评分结果。',
+  };
+};
+
+interface MatchScoreAsyncCallbacks {
+  onRefined?: (score: AdoptionMatchScore) => void;
+  onRefineError?: (error: Error) => void;
+}
+
 // ============================================================
 // 查询
 // ============================================================
@@ -143,7 +240,7 @@ export const callLlmMatchScore = async (
           { role: 'system', content: MATCH_SCORE_SYSTEM_PROMPT },
           { role: 'user', content: prompt },
         ],
-        max_tokens: 800,
+        max_tokens: 420,
         temperature: 0.3,
         response_format: { type: 'json_object' },
       }),
@@ -164,7 +261,7 @@ export const callLlmMatchScore = async (
           { role: 'system', content: MATCH_SCORE_SYSTEM_PROMPT },
           { role: 'user', content: prompt },
         ],
-        max_tokens: 800,
+        max_tokens: 420,
         temperature: 0.3,
         response_format: { type: 'json_object' },
       }),
@@ -202,30 +299,29 @@ export const generateAndSaveMatchScore = async (
   questionnaire: MatchQuestionnaire,
   userId: string,
   petId: string,
-  applicationId?: string
+  applicationId?: string,
+  callbacks?: MatchScoreAsyncCallbacks
 ): Promise<AdoptionMatchScore> => {
-  const raw = await callLlmMatchScore(pet, questionnaire);
+  if (questionnaire.message.trim().length < 10) {
+    throw new Error('申请寄语至少需要 10 个字，才能生成 AI 评分');
+  }
 
-  const { data, error } = await supabase
-    .from('adoption_match_scores')
-    .insert({
-      user_id: userId,
-      pet_id: petId,
-      application_id: applicationId ?? null,
-      overall_score: raw.overall_score,
-      stability_score: raw.stability_score,
-      time_score: raw.time_score,
-      cost_score: raw.cost_score,
-      experience_score: raw.experience_score,
-      allergy_risk_level: raw.allergy_risk_level,
-      summary: raw.summary,
-      risk_notes: raw.risk_notes || null,
-      suggestions: raw.suggestions || null,
-      raw_payload: raw as unknown as Record<string, unknown>,
-    })
-    .select()
-    .single();
+  const quickRaw = buildQuickMatchScore(pet, questionnaire);
+  const quickSaved = await saveScoreRaw(quickRaw, userId, petId, applicationId, 'quick_local_v1');
 
-  if (error) throw new Error(error.message);
-  return mapRowToScore(data as Record<string, unknown>);
+  void (async () => {
+    try {
+      const refinedRaw = await withTimeout(
+        callLlmMatchScore(pet, questionnaire),
+        25000,
+        'AI 精修超时，请稍后重试'
+      );
+      const refinedScore = await saveScoreRaw(refinedRaw, userId, petId, applicationId, 'ai_refined_v1');
+      callbacks?.onRefined?.(refinedScore);
+    } catch (error) {
+      callbacks?.onRefineError?.(error instanceof Error ? error : new Error('AI 精修失败'));
+    }
+  })();
+
+  return quickSaved;
 };

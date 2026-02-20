@@ -83,6 +83,29 @@ const MatchScoreCard: React.FC<{ score: AdoptionMatchScore }> = ({ score }) => (
   </div>
 );
 
+const isRefinedScore = (score: AdoptionMatchScore | null): boolean => {
+  if (!score?.rawPayload) return false;
+  const source = score.rawPayload['source'];
+  return source === 'ai_refined_v1';
+};
+
+const buildScoreReportText = (petName: string, score: AdoptionMatchScore): string => {
+  return [
+    `📊 ${petName} 的 AI 匹配评估报告已生成`,
+    `总分：${score.overallScore}`,
+    `- 居住稳定性：${score.stabilityScore}`,
+    `- 陪伴时间：${score.timeScore}`,
+    `- 经济能力：${score.costScore}`,
+    `- 经验准备度：${score.experienceScore}`,
+    `过敏风险：${RISK_LABEL[score.allergyRiskLevel]}`,
+    `综合建议：${score.summary}`,
+    score.riskNotes ? `风险提示：${score.riskNotes}` : '',
+    score.suggestions ? `改进建议：${score.suggestions}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
+
 const AdoptionForm: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -114,7 +137,9 @@ const AdoptionForm: React.FC = () => {
   // AI 评分状态
   const [pet, setPet] = useState<Pet | null>(null);
   const [matchScore, setMatchScore] = useState<AdoptionMatchScore | null>(null);
-  const [scoringLoading, setScoringLoading] = useState(false);
+  const [scoreTaskRunning, setScoreTaskRunning] = useState(false);
+  const [scoreRefining, setScoreRefining] = useState(false);
+  const [showScoreNoticeModal, setShowScoreNoticeModal] = useState(false);
 
   useEffect(() => {
     if (!petId) return;
@@ -129,6 +154,7 @@ const AdoptionForm: React.FC = () => {
         // 加载已有匹配评分
         const score = await fetchMatchScore(user.id, petId).catch(() => null);
         setMatchScore(score);
+        setScoreRefining(Boolean(score && !isRefinedScore(score)));
       }
       const loadedPet = await fetchPetById(petId);
       if (loadedPet) {
@@ -144,6 +170,21 @@ const AdoptionForm: React.FC = () => {
   }, [petId, user, navigate, showToast]);
 
   useEffect(() => {
+    if (!user || !petId || !scoreRefining) return;
+
+    const timer = window.setInterval(async () => {
+      const latest = await fetchMatchScore(user.id, petId).catch(() => null);
+      if (!latest) return;
+      setMatchScore(latest);
+      if (isRefinedScore(latest)) {
+        setScoreRefining(false);
+      }
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [user, petId, scoreRefining]);
+
+  useEffect(() => {
     const validName = name.trim().length > 0;
     const validMessage = message.trim().length > 0 && message.trim().length <= MAX_MESSAGE_LENGTH;
     setIsFormValid(validName && validMessage);
@@ -157,12 +198,22 @@ const AdoptionForm: React.FC = () => {
     }
   };
 
-  const handleGetMatchScore = async () => {
+  const handleGetMatchScore = () => {
     if (!user || !pet) return;
     if (message.trim().length < 10) {
       showToast('请先填写申请寄语（至少 10 字）再获取评分');
       return;
     }
+    if (scoreTaskRunning) {
+      showToast('积分正在后台计算中，请稍候');
+      return;
+    }
+
+    setShowScoreNoticeModal(true);
+    window.setTimeout(() => setShowScoreNoticeModal(false), 2400);
+    setScoreTaskRunning(true);
+    setScoreRefining(true);
+
     const questionnaire: MatchQuestionnaire = {
       housingType,
       livingStatus,
@@ -175,16 +226,47 @@ const AdoptionForm: React.FC = () => {
       workStyle,
       message: message.trim(),
     };
-    setScoringLoading(true);
-    try {
-      const score = await generateAndSaveMatchScore(pet, questionnaire, user.id, petId);
-      setMatchScore(score);
-      showToast('AI 匹配评分已生成！');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'AI 评分失败，请稍后重试');
-    } finally {
-      setScoringLoading(false);
-    }
+
+    void (async () => {
+      let systemConvId: string | null = null;
+      try {
+        systemConvId = await getOrCreateSystemConversation(user.id);
+        await insertSystemReply(systemConvId, `已收到“${pet.name}”的积分评估请求，正在为您计算中，完成后会自动通知您。`);
+      } catch {
+        // 忽略系统消息失败，不影响主流程
+      }
+
+      try {
+        const score = await generateAndSaveMatchScore(pet, questionnaire, user.id, petId, undefined, {
+          onRefined: refined => {
+            setMatchScore(refined);
+            setScoreRefining(false);
+            showToast('AI 评估已完成，报告已发送到消息');
+
+            void (async () => {
+              try {
+                const convId = systemConvId ?? await getOrCreateSystemConversation(user.id);
+                await insertSystemReply(convId, buildScoreReportText(pet.name, refined));
+              } catch {
+                // 忽略通知失败
+              }
+            })();
+          },
+          onRefineError: () => {
+            setScoreRefining(false);
+            showToast('AI 精修失败，当前展示快速评分');
+          },
+        });
+
+        setMatchScore(score);
+        showToast('积分已进入后台计算，您可直接提交申请');
+      } catch (err) {
+        setScoreRefining(false);
+        showToast(err instanceof Error ? err.message : 'AI 评分失败，请稍后重试');
+      } finally {
+        setScoreTaskRunning(false);
+      }
+    })();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -231,6 +313,31 @@ const AdoptionForm: React.FC = () => {
       {isLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-[999]">
           <div className="w-16 h-16 border-4 border-white border-t-primary rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {showScoreNoticeModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[997] px-6">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-800 rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-zinc-700">
+            <div className="flex items-start gap-3">
+              <span className="material-icons-round text-primary">auto_awesome</span>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">正在为您计算积分</p>
+                <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed">
+                  已转入后台处理，您现在可以直接提交申请。评估完成后会通过消息通知您。
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowScoreNoticeModal(false)}
+                className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-200 active:scale-[0.97] transition-all"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -503,21 +610,32 @@ const AdoptionForm: React.FC = () => {
           {/* AI 匹配评分区域 */}
           <section className="space-y-4">
             {matchScore && <MatchScoreCard score={matchScore} />}
+            {scoreRefining && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs">
+                <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                AI 正在后台精修评分，你可以继续填写并提交申请
+              </div>
+            )}
             <button
               type="button"
               onClick={handleGetMatchScore}
-              disabled={scoringLoading || !pet}
+              disabled={scoreTaskRunning || !pet}
               className="w-full py-3.5 rounded-xl border-2 border-primary text-primary font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary/10 active:scale-[0.97] transition-all disabled:opacity-50"
             >
-              {scoringLoading ? (
+              {scoreTaskRunning ? (
                 <>
                   <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  AI 分析中…
+                  任务提交中…
+                </>
+              ) : scoreRefining ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  后台精修中…
                 </>
               ) : (
                 <>
                   <span className="material-icons-round text-base">auto_awesome</span>
-                  {matchScore ? '重新生成匹配评分' : '获取 AI 匹配评分'}
+                  {matchScore ? '重新发起积分评估' : '发起积分评估（后台通知）'}
                 </>
               )}
             </button>

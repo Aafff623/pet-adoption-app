@@ -20,6 +20,12 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
   target.src = PET_PLACEHOLDER;
 };
 
+const isRefinedScore = (score: AdoptionMatchScore | null): boolean => {
+  if (!score?.rawPayload) return false;
+  const source = score.rawPayload['source'];
+  return source === 'ai_refined_v1';
+};
+
 const PetDetail: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -41,6 +47,7 @@ const PetDetail: React.FC = () => {
   const [newPetLogContent, setNewPetLogContent] = useState('');
   const [petLogSubmitting, setPetLogSubmitting] = useState(false);
   const [matchScore, setMatchScore] = useState<AdoptionMatchScore | null>(null);
+  const [scoreRefreshing, setScoreRefreshing] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -64,6 +71,7 @@ const PetDetail: React.FC = () => {
         if (user && id) {
           const score = await fetchMatchScore(user.id, id).catch(() => null);
           setMatchScore(score);
+          setScoreRefreshing(Boolean(score && !isRefinedScore(score)));
         }
       } catch {
         showToast('加载宠物详情失败，请重试');
@@ -75,6 +83,27 @@ const PetDetail: React.FC = () => {
 
     loadPet();
   }, [id, user, showToast]);
+
+  useEffect(() => {
+    if (!user || !id || !scoreRefreshing) return;
+
+    const timer = window.setInterval(async () => {
+      const latest = await fetchMatchScore(user.id, id).catch(() => null);
+      if (!latest) return;
+
+      const changed = !matchScore || latest.id !== matchScore.id;
+      setMatchScore(latest);
+
+      if (isRefinedScore(latest)) {
+        setScoreRefreshing(false);
+        if (changed) {
+          showToast('AI 匹配评分已更新');
+        }
+      }
+    }, 6000);
+
+    return () => window.clearInterval(timer);
+  }, [user, id, scoreRefreshing, matchScore, showToast]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -331,6 +360,12 @@ const PetDetail: React.FC = () => {
               }`}>{matchScore.overallScore}</span>
             </div>
             <div className="bg-white dark:bg-zinc-700 rounded-2xl p-4 border border-gray-100 dark:border-zinc-600 shadow-sm space-y-3">
+              {scoreRefreshing && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs">
+                  <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  AI 精修中，评分将自动刷新
+                </div>
+              )}
               {[
                 { label: '居住稳定性', score: matchScore.stabilityScore },
                 { label: '陪伴时间', score: matchScore.timeScore },
