@@ -28,6 +28,7 @@ const AdoptionProgress: React.FC = () => {
   const [milestoneSubmittingId, setMilestoneSubmittingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | AdoptionApplication['status']>('all');
 
   useEffect(() => {
     if (!user) return;
@@ -109,6 +110,19 @@ const AdoptionProgress: React.FC = () => {
     }
   };
 
+  // 根据选中的标签筛选申请列表
+  const filteredItems = activeTab === 'all' 
+    ? items 
+    : items.filter(({ application }) => application.status === activeTab);
+
+  // 统计各状态的数量
+  const statusCounts = {
+    all: items.length,
+    pending: items.filter(({ application }) => application.status === 'pending').length,
+    approved: items.filter(({ application }) => application.status === 'approved').length,
+    rejected: items.filter(({ application }) => application.status === 'rejected').length,
+  };
+
   return (
     <div className="bg-background-light dark:bg-zinc-900 min-h-screen fade-in">
       <header className="px-4 py-4 flex items-center bg-white dark:bg-zinc-800 shadow-sm sticky top-0 z-50">
@@ -122,6 +136,52 @@ const AdoptionProgress: React.FC = () => {
         <h1 className="text-lg font-bold text-gray-900 dark:text-zinc-100 ml-2">我的申请</h1>
       </header>
 
+      {/* 状态筛选标签栏 */}
+      <div className="bg-white dark:bg-zinc-800 px-4 py-3 border-b border-gray-100 dark:border-zinc-700 sticky top-[60px] z-40">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+              activeTab === 'all'
+                ? 'bg-primary text-black shadow-lg shadow-primary/20'
+                : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-600'
+            }`}
+          >
+            全部 {statusCounts.all > 0 && `(${statusCounts.all})`}
+          </button>
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+              activeTab === 'pending'
+                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 shadow-lg'
+                : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-600'
+            }`}
+          >
+            审核中 {statusCounts.pending > 0 && `(${statusCounts.pending})`}
+          </button>
+          <button
+            onClick={() => setActiveTab('approved')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+              activeTab === 'approved'
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 shadow-lg'
+                : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-600'
+            }`}
+          >
+            已通过 {statusCounts.approved > 0 && `(${statusCounts.approved})`}
+          </button>
+          <button
+            onClick={() => setActiveTab('rejected')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
+              activeTab === 'rejected'
+                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 shadow-lg'
+                : 'bg-gray-100 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-200 dark:hover:bg-zinc-600'
+            }`}
+          >
+            未通过 {statusCounts.rejected > 0 && `(${statusCounts.rejected})`}
+          </button>
+        </div>
+      </div>
+
       <main className="p-4 space-y-4">
         {loading ? (
           <div className="space-y-4">
@@ -129,19 +189,23 @@ const AdoptionProgress: React.FC = () => {
               <div key={i} className="bg-white dark:bg-zinc-800 rounded-2xl p-4 h-28 animate-pulse" />
             ))}
           </div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <span className="material-icons-round text-6xl text-gray-200 dark:text-zinc-700">assignment</span>
-            <p className="text-gray-400 dark:text-zinc-500 text-sm">暂无申请记录</p>
-            <button
-              onClick={() => navigate('/')}
-              className="px-6 py-2 bg-primary text-black rounded-full font-bold text-sm shadow-lg shadow-primary/20"
-            >
-              去发现宠物
-            </button>
+            <p className="text-gray-400 dark:text-zinc-500 text-sm">
+              {activeTab === 'all' ? '暂无申请记录' : `暂无${STATUS_MAP[activeTab as AdoptionApplication['status']]?.label || ''}的申请`}
+            </p>
+            {activeTab === 'all' && (
+              <button
+                onClick={() => navigate('/')}
+                className="px-6 py-2 bg-primary text-black rounded-full font-bold text-sm shadow-lg shadow-primary/20"
+              >
+                去发现宠物
+              </button>
+            )}
           </div>
         ) : (
-          items.map(({ application, pet }) => {
+          filteredItems.map(({ application, pet }) => {
             const statusInfo = STATUS_MAP[application.status];
             const isExpanded = expandedId === application.id;
 

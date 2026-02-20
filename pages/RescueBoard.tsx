@@ -30,10 +30,12 @@ const STATUS_CLASS: Record<RescueTaskStatus, string> = {
   cancelled: 'bg-gray-100 text-gray-500 dark:bg-zinc-700 dark:text-zinc-400',
 };
 
-const FILTERS: Array<{ id: 'all' | RescueTaskStatus; label: string }> = [
+type FilterType = 'all' | 'my-published' | 'my-participated' | 'completed';
+
+const FILTERS: Array<{ id: FilterType; label: string }> = [
   { id: 'all', label: '全部' },
-  { id: 'open', label: '待接单' },
-  { id: 'claimed', label: '执行中' },
+  { id: 'my-published', label: '我发布的' },
+  { id: 'my-participated', label: '我参与的' },
   { id: 'completed', label: '已完成' },
 ];
 
@@ -44,7 +46,7 @@ const RescueBoard: React.FC = () => {
   const [tasks, setTasks] = useState<RescueTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | RescueTaskStatus>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
@@ -92,12 +94,18 @@ const RescueBoard: React.FC = () => {
   const displayedTasks = useMemo(() => {
     const now = Date.now();
     return tasks
-      .filter(task => activeFilter === 'all' || task.status === activeFilter)
+      .filter(task => {
+        if (activeFilter === 'all') return true;
+        if (activeFilter === 'my-published') return task.creatorId === user?.id;
+        if (activeFilter === 'my-participated') return task.claimedByMe;
+        if (activeFilter === 'completed') return task.status === 'completed';
+        return true;
+      })
       .map(task => ({
         ...task,
         isExpired: task.status !== 'completed' && task.status !== 'cancelled' && new Date(task.windowEnd).getTime() < now,
       }));
-  }, [tasks, activeFilter]);
+  }, [tasks, activeFilter, user?.id]);
 
   const resetForm = () => {
     setTitle('');

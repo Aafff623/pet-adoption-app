@@ -7,6 +7,7 @@ import {
   approveRescueTaskApplicant,
   cancelRescueTask,
   completeRescueTask,
+  creatorCompleteTask,
   fetchRescueTaskById,
 } from '../lib/api/rescueTasks';
 import type { RescueTask, RescueTaskType } from '../types';
@@ -106,6 +107,20 @@ const RescueTaskDetail: React.FC = () => {
       showToast('任务已取消');
     } catch (err) {
       showToast(err instanceof Error ? err.message : '取消失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreatorComplete = async () => {
+    if (!user || !task) return;
+    setSubmitting(true);
+    try {
+      const updated = await creatorCompleteTask(task.id, user.id);
+      setTask(updated);
+      showToast('任务已结束');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '操作失败');
     } finally {
       setSubmitting(false);
     }
@@ -236,6 +251,16 @@ const RescueTaskDetail: React.FC = () => {
                 className="w-full py-3 rounded-xl border border-red-200 text-red-600 dark:text-red-400 font-bold disabled:opacity-50"
               >
                 {submitting ? '处理中...' : '取消任务'}
+              </button>
+            )}
+
+            {task.status === 'claimed' && isCreator && (
+              <button
+                onClick={handleCreatorComplete}
+                disabled={submitting}
+                className="w-full py-3 rounded-xl bg-green-500 dark:bg-green-600 text-white font-bold disabled:opacity-50 active:scale-[0.97] transition-all"
+              >
+                {submitting ? '处理中...' : '结束任务'}
               </button>
             )}
 

@@ -69,11 +69,13 @@ const hydrateTaskRelations = async (
 
   return tasks.map(task => {
     const taskClaims = claims.filter(claim => claim.task_id === task.id);
-    const approvedClaims = taskClaims.filter(claim => claim.status !== 'pending');
+    const approvedClaims = taskClaims.filter(
+      claim => claim.status === 'approved' || claim.status === 'completed'
+    );
     const assignees = approvedClaims.map(claim => ({
       userId: claim.user_id,
       nickname: profileMap.get(claim.user_id) ?? '志愿者',
-      status: claim.status,
+      status: claim.status as 'approved' | 'completed',
     }));
     const pendingApplicants = taskClaims
       .filter(claim => claim.status === 'pending')
@@ -319,6 +321,29 @@ export const cancelRescueTask = async (taskId: string, userId: string): Promise<
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error('仅任务发起人可取消未完成任务');
+
+  const latest = await fetchRescueTaskById(taskId, userId);
+  if (!latest) throw new Error('任务状态刷新失败');
+  return latest;
+};
+
+export const creatorCompleteTask = async (taskId: string, userId: string): Promise<RescueTask> => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('rescue_tasks')
+    .update({
+      status: 'completed',
+      completed_at: now,
+      updated_at: now,
+    })
+    .eq('id', taskId)
+    .eq('creator_id', userId)
+    .eq('status', 'claimed')
+    .select('*')
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('仅任务发起人可在执行中状态结束任务');
 
   const latest = await fetchRescueTaskById(taskId, userId);
   if (!latest) throw new Error('任务状态刷新失败');
