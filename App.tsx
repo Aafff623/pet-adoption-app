@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './contexts/ToastContext';
+import NetworkBanner from './components/NetworkBanner';
 import Home from './pages/Home';
 import PetDetail from './pages/PetDetail';
 import AdoptionForm from './pages/AdoptionForm';
@@ -30,6 +31,9 @@ import AdoptionProgress from './pages/AdoptionProgress';
 import LostAlerts from './pages/LostAlerts';
 import PublishLostAlert from './pages/PublishLostAlert';
 import LostAlertDetail from './pages/LostAlertDetail';
+import RescueBoard from './pages/RescueBoard';
+import RescueTaskDetail from './pages/RescueTaskDetail';
+import PetHealthDiary from './pages/PetHealthDiary';
 
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
   const { user, loading } = useAuth();
@@ -79,6 +83,9 @@ const AppRoutes: React.FC = () => {
       <Route path="/lost-alerts" element={<LostAlerts />} />
       <Route path="/lost-alerts/publish" element={<ProtectedRoute element={<PublishLostAlert />} />} />
       <Route path="/lost-alerts/:id" element={<LostAlertDetail />} />
+      <Route path="/rescue-board" element={<ProtectedRoute element={<RescueBoard />} />} />
+      <Route path="/rescue-board/:id" element={<ProtectedRoute element={<RescueTaskDetail />} />} />
+      <Route path="/pet-health/:petId" element={<ProtectedRoute element={<PetHealthDiary />} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -90,6 +97,7 @@ const App: React.FC = () => {
       <HashRouter>
         <AuthProvider>
           <ToastProvider>
+            <NetworkBanner />
             <AppRoutes />
           </ToastProvider>
         </AuthProvider>

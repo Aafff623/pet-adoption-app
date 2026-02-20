@@ -194,6 +194,50 @@ export interface FollowUpTask {
 }
 
 // ============================================================
+// Phase 4: 救助协作任务板
+// ============================================================
+export type RescueTaskType = 'feeding' | 'medical' | 'transport' | 'foster' | 'supplies';
+export type RescueTaskStatus = 'open' | 'claimed' | 'completed' | 'cancelled';
+
+export interface RescueTask {
+  id: string;
+  creatorId: string;
+  title: string;
+  taskType: RescueTaskType;
+  description?: string | null;
+  locationText?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  windowStart: string;
+  windowEnd: string;
+  status: RescueTaskStatus;
+  assigneeId?: string | null;
+  assigneeName?: string | null;
+  assignees: Array<{ userId: string; nickname: string; status: 'approved' | 'completed' }>;
+  pendingApplicants: Array<{ userId: string; nickname: string }>;
+  maxAssignees: number;
+  claimedCount: number;
+  claimedByMe: boolean;
+  appliedByMe: boolean;
+  completedNote?: string | null;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRescueTaskParams {
+  title: string;
+  taskType: RescueTaskType;
+  description?: string;
+  locationText?: string;
+  latitude?: number;
+  longitude?: number;
+  windowStart: string;
+  windowEnd: string;
+  maxAssignees: number;
+}
+
+// ============================================================
 // Phase 1: 失踪宠物应急广播
 // ============================================================
 export type LostAlertStatus = 'active' | 'closed';
@@ -316,4 +360,51 @@ export interface MatchScoreRaw {
   summary: string;
   risk_notes: string;
   suggestions: string;
+}
+
+// ============================================================
+// Phase 5: 宠物情绪与健康日记
+// ============================================================
+export interface PetHealthDiary {
+  id: string;
+  petId: string;
+  authorId: string;
+  moodLevel?: number | null;      // 1-5
+  appetiteLevel?: number | null;  // 1-5
+  energyLevel?: number | null;    // 1-5
+  sleepHours?: number | null;
+  weightKg?: number | null;
+  symptoms?: string | null;
+  note?: string | null;
+  imageUrl?: string | null;
+  recordedAt: string;
+  createdAt: string;
+}
+
+export type HealthRiskLevel = 'low' | 'medium' | 'high';
+
+export interface PetHealthInsight {
+  id: string;
+  petId: string;
+  userId: string;
+  periodDays: number;
+  insightSummary: string;
+  riskLevel: HealthRiskLevel;
+  signals: string[];
+  suggestions: string[];
+  rawPayload?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface CreateHealthDiaryParams {
+  petId: string;
+  moodLevel?: number;
+  appetiteLevel?: number;
+  energyLevel?: number;
+  sleepHours?: number;
+  weightKg?: number;
+  symptoms?: string;
+  note?: string;
+  imageUrl?: string;
+  recordedAt?: string;
 }

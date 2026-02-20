@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
 import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favorites';
 import { fetchPetList, fetchRecommendedPets, type FetchPetListParams } from '../lib/api/pets';
+import { fetchRescueTasks } from '../lib/api/rescueTasks';
 import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
 import { DEFAULT_LOCATION } from '../lib/data/regions';
 import type { Pet } from '../types';
@@ -38,6 +39,7 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
 };
 
 const CAROUSEL_INTERVAL = 4000;
+const RESCUE_LAST_SEEN_KEY = 'petconnect_rescue_last_seen';
 
 const Home: React.FC = () => {
   const { showToast } = useToast();
@@ -61,6 +63,7 @@ const Home: React.FC = () => {
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [carouselFavoritedIds, setCarouselFavoritedIds] = useState<Set<string>>(new Set());
   const [carouselFavoriteLoading, setCarouselFavoriteLoading] = useState(false);
+  const [hasNewRescueTask, setHasNewRescueTask] = useState(false);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const newArrivalsRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
@@ -93,6 +96,45 @@ const Home: React.FC = () => {
 
     return () => stopAutoPlay();
   }, [startAutoPlay, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setHasNewRescueTask(false);
+      return;
+    }
+
+    const checkNewRescue = async () => {
+      try {
+        const tasks = await fetchRescueTasks(undefined, user.id);
+        const hasPendingOnMyTasks = tasks.some(
+          task => task.creatorId === user.id && task.pendingApplicants.length > 0
+        );
+
+        if (hasPendingOnMyTasks) {
+          setHasNewRescueTask(true);
+          return;
+        }
+
+        const latestFromOthers = tasks
+          .filter(task => task.creatorId !== user.id)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (!latestFromOthers) {
+          setHasNewRescueTask(false);
+          return;
+        }
+
+        const lastSeen = localStorage.getItem(RESCUE_LAST_SEEN_KEY);
+        const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
+        const latestTime = new Date(latestFromOthers.createdAt).getTime();
+        setHasNewRescueTask(latestTime > lastSeenTime);
+      } catch {
+        setHasNewRescueTask(false);
+      }
+    };
+
+    void checkNewRescue();
+  }, [user]);
 
   // 关键词 500ms 防抖
   useEffect(() => {
@@ -282,6 +324,36 @@ const Home: React.FC = () => {
               <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">查看附近走失宠物，提交目击线索</p>
             </div>
             <span className="material-icons-round text-orange-400 dark:text-orange-500">chevron_right</span>
+          </button>
+        </section>
+
+        {/* 救助协作任务板入口 */}
+        <section>
+          <button
+            onClick={() => {
+              if (!user) {
+                navigate('/login');
+                return;
+              }
+              localStorage.setItem(RESCUE_LAST_SEEN_KEY, new Date().toISOString());
+              setHasNewRescueTask(false);
+              navigate('/rescue-board');
+            }}
+            className="w-full flex items-center gap-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-100 dark:border-blue-800/40 rounded-2xl px-5 py-4 active:scale-[0.98] transition-all shadow-sm"
+          >
+            <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
+              <span className="material-icons-round text-blue-600 dark:text-blue-300">volunteer_activism</span>
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-bold text-blue-900 dark:text-blue-300">救助协作任务板</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">发布救助任务，志愿者接单协作完成</p>
+            </div>
+            <div className="relative">
+              <span className="material-icons-round text-blue-400 dark:text-blue-500">chevron_right</span>
+              {hasNewRescueTask && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500" />
+              )}
+            </div>
           </button>
         </section>
 

@@ -1,36 +1,37 @@
--- ============================================================
--- PetConnect 数据库 Schema
--- 在 Supabase SQL Editor 中执行此文件以初始化数据库
+﻿-- ============================================================
+-- PetConnect 数据库 Schema（完整最终版）
+-- 此文件反映当前数据库的完整状态，可用于在全新环境中一键重建
+-- 执行顺序：schema.sql -> seed.sql（可选）
+-- 最后更新：2026-02-20
 -- ============================================================
 
 -- ============================================================
 -- 1. profiles 用户资料表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  nickname TEXT NOT NULL DEFAULT '宠物爱好者',
-  avatar_url TEXT DEFAULT '',
-  bio TEXT DEFAULT '',
-  city TEXT DEFAULT '',
-  following_count INTEGER NOT NULL DEFAULT 0,
-  applying_count INTEGER NOT NULL DEFAULT 0,
-  adopted_count INTEGER NOT NULL DEFAULT 0,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  nickname        TEXT        NOT NULL DEFAULT '宠物爱好者',
+  avatar_url      TEXT        DEFAULT '',
+  bio             TEXT        DEFAULT '',
+  city            TEXT        DEFAULT '',
+  following_count INTEGER     NOT NULL DEFAULT 0,
+  applying_count  INTEGER     NOT NULL DEFAULT 0,
+  adopted_count   INTEGER     NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- 为已存在的数据库补充 bio 和 city 列（幂等操作）
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS city TEXT DEFAULT '';
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
 CREATE POLICY "profiles_select_own" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
 CREATE POLICY "profiles_insert_own" ON public.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
 CREATE POLICY "profiles_update_own" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
@@ -57,348 +58,582 @@ CREATE TRIGGER on_auth_user_created
 -- 2. pets 宠物信息表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.pets (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  breed TEXT NOT NULL,
-  age_text TEXT NOT NULL,
-  distance TEXT NOT NULL DEFAULT '未知',
-  gender TEXT NOT NULL CHECK (gender IN ('male', 'female')),
-  image_url TEXT NOT NULL DEFAULT '',
-  price INTEGER NOT NULL DEFAULT 0,
-  location TEXT NOT NULL DEFAULT '',
-  weight TEXT NOT NULL DEFAULT '',
-  description TEXT NOT NULL DEFAULT '',
-  tags TEXT[] DEFAULT '{}',
-  is_urgent BOOLEAN NOT NULL DEFAULT FALSE,
-  story TEXT NOT NULL DEFAULT '',
-  health JSONB NOT NULL DEFAULT '{}',
-  foster_parent_name TEXT NOT NULL DEFAULT '',
-  foster_parent_avatar TEXT NOT NULL DEFAULT '',
-  category TEXT NOT NULL DEFAULT 'all' CHECK (category IN ('all', 'dog', 'cat', 'rabbit', 'bird', 'hamster', 'turtle', 'fish', 'other')),
-  status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'adopted', 'pending')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                   TEXT        PRIMARY KEY,
+  name                 TEXT        NOT NULL,
+  breed                TEXT        NOT NULL,
+  age_text             TEXT        NOT NULL,
+  distance             TEXT        NOT NULL DEFAULT '未知',
+  gender               TEXT        NOT NULL CHECK (gender IN ('male', 'female')),
+  image_url            TEXT        NOT NULL DEFAULT '',
+  price                INTEGER     NOT NULL DEFAULT 0,
+  location             TEXT        NOT NULL DEFAULT '',
+  weight               TEXT        NOT NULL DEFAULT '',
+  description          TEXT        NOT NULL DEFAULT '',
+  tags                 TEXT[]      DEFAULT '{}',
+  is_urgent            BOOLEAN     NOT NULL DEFAULT FALSE,
+  story                TEXT        NOT NULL DEFAULT '',
+  health               JSONB       NOT NULL DEFAULT '{}',
+  foster_parent_name   TEXT        NOT NULL DEFAULT '',
+  foster_parent_avatar TEXT        NOT NULL DEFAULT '',
+  category             TEXT        NOT NULL DEFAULT 'all'
+                         CHECK (category IN ('all','dog','cat','rabbit','bird','hamster','turtle','fish','other')),
+  status               TEXT        NOT NULL DEFAULT 'available'
+                         CHECK (status IN ('available','adopted','pending','pending_review')),
+  user_id              UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.pets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "pets_select_all" ON public.pets;
 CREATE POLICY "pets_select_all" ON public.pets
   FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "pets_insert_own" ON public.pets;
+CREATE POLICY "pets_insert_own" ON public.pets
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "pets_update_own" ON public.pets;
+CREATE POLICY "pets_update_own" ON public.pets
+  FOR UPDATE USING (auth.uid() = user_id AND status = 'pending_review');
+
+CREATE INDEX IF NOT EXISTS pets_user_id_idx ON public.pets(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS pets_gender_idx ON public.pets(gender);
+CREATE INDEX IF NOT EXISTS pets_urgent_idx ON public.pets(is_urgent) WHERE is_urgent = TRUE;
+CREATE INDEX IF NOT EXISTS pets_status_category_created_idx ON public.pets(status, category, created_at DESC);
+CREATE INDEX IF NOT EXISTS pets_location_idx ON public.pets(location);
 
 -- ============================================================
 -- 3. favorites 收藏表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.favorites (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  pet_id TEXT NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pet_id     TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, pet_id)
 );
 
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "favorites_select_own" ON public.favorites
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "favorites_insert_own" ON public.favorites
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "favorites_delete_own" ON public.favorites
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "favorites_select_own" ON public.favorites;
+CREATE POLICY "favorites_select_own" ON public.favorites FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "favorites_insert_own" ON public.favorites;
+CREATE POLICY "favorites_insert_own" ON public.favorites FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "favorites_delete_own" ON public.favorites;
+CREATE POLICY "favorites_delete_own" ON public.favorites FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- 4. adoption_applications 领养申请表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.adoption_applications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  pet_id TEXT NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
-  full_name TEXT NOT NULL,
-  age TEXT NOT NULL,
-  occupation TEXT NOT NULL,
-  housing_type TEXT NOT NULL,
-  living_status TEXT NOT NULL,
-  has_experience BOOLEAN NOT NULL DEFAULT FALSE,
-  message TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pet_id         TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  full_name      TEXT        NOT NULL,
+  age            TEXT        NOT NULL,
+  occupation     TEXT        NOT NULL,
+  housing_type   TEXT        NOT NULL,
+  living_status  TEXT        NOT NULL,
+  has_experience BOOLEAN     NOT NULL DEFAULT FALSE,
+  message        TEXT        NOT NULL DEFAULT '',
+  status         TEXT        NOT NULL DEFAULT 'pending'
+                   CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.adoption_applications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "applications_select_own" ON public.adoption_applications
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "applications_insert_own" ON public.adoption_applications
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "applications_select_own" ON public.adoption_applications;
+CREATE POLICY "applications_select_own" ON public.adoption_applications FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "applications_insert_own" ON public.adoption_applications;
+CREATE POLICY "applications_insert_own" ON public.adoption_applications FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- ============================================================
 -- 5. conversations 会话表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  other_user_name TEXT NOT NULL,
-  other_user_avatar TEXT NOT NULL DEFAULT '',
-  last_message TEXT NOT NULL DEFAULT '',
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  other_user_name   TEXT        NOT NULL,
+  other_user_avatar TEXT        NOT NULL DEFAULT '',
+  last_message      TEXT        NOT NULL DEFAULT '',
   last_message_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  unread_count INTEGER NOT NULL DEFAULT 0,
-  is_system BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  unread_count      INTEGER     NOT NULL DEFAULT 0,
+  is_system         BOOLEAN     NOT NULL DEFAULT FALSE,
+  agent_type        TEXT        DEFAULT NULL,
+  other_user_id     UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "conversations_select_own" ON public.conversations
-  FOR SELECT USING (auth.uid() = user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS conversations_p2p_unique
+  ON public.conversations(user_id, other_user_id)
+  WHERE other_user_id IS NOT NULL AND is_system = FALSE;
 
-CREATE POLICY "conversations_insert_own" ON public.conversations
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "conversations_update_own" ON public.conversations
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "conversations_delete_own" ON public.conversations
-  FOR DELETE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "conversations_select_own" ON public.conversations;
+CREATE POLICY "conversations_select_own" ON public.conversations FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "conversations_insert_own" ON public.conversations;
+CREATE POLICY "conversations_insert_own" ON public.conversations FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "conversations_update_own" ON public.conversations;
+CREATE POLICY "conversations_update_own" ON public.conversations FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "conversations_delete_own" ON public.conversations;
+CREATE POLICY "conversations_delete_own" ON public.conversations FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- 6. chat_messages 聊天消息表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  is_self BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID        NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  content         TEXT        NOT NULL,
+  is_self         BOOLEAN     NOT NULL DEFAULT TRUE,
+  sender_id       UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  deleted_at      TIMESTAMPTZ DEFAULT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "chat_messages_select_own" ON public.chat_messages
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.conversations c
-      WHERE c.id = conversation_id AND c.user_id = auth.uid()
-    )
-  );
+CREATE INDEX IF NOT EXISTS chat_messages_sender_idx ON public.chat_messages(sender_id) WHERE sender_id IS NOT NULL;
 
-CREATE POLICY "chat_messages_insert_own" ON public.chat_messages
-  FOR INSERT WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.conversations c
-      WHERE c.id = conversation_id AND c.user_id = auth.uid()
-    )
-  );
+DROP POLICY IF EXISTS "chat_messages_select_own" ON public.chat_messages;
+CREATE POLICY "chat_messages_select_own" ON public.chat_messages FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.conversations c WHERE c.id = conversation_id AND c.user_id = auth.uid()));
 
-CREATE POLICY "chat_messages_delete_own" ON public.chat_messages
-  FOR DELETE USING (
-    EXISTS (
-      SELECT 1 FROM public.conversations c
-      WHERE c.id = conversation_id AND c.user_id = auth.uid()
-    )
-  );
+DROP POLICY IF EXISTS "chat_messages_insert_own" ON public.chat_messages;
+CREATE POLICY "chat_messages_insert_own" ON public.chat_messages FOR INSERT
+  WITH CHECK (EXISTS (SELECT 1 FROM public.conversations c WHERE c.id = conversation_id AND c.user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "chat_messages_update_own" ON public.chat_messages;
+CREATE POLICY "chat_messages_update_own" ON public.chat_messages FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.conversations c WHERE c.id = conversation_id AND c.user_id = auth.uid()));
+
+DROP POLICY IF EXISTS "chat_messages_delete_own" ON public.chat_messages;
+CREATE POLICY "chat_messages_delete_own" ON public.chat_messages FOR DELETE
+  USING (EXISTS (SELECT 1 FROM public.conversations c WHERE c.id = conversation_id AND c.user_id = auth.uid()));
 
 -- ============================================================
 -- 7. verifications 实名认证表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.verifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-  real_name TEXT NOT NULL,
-  id_type TEXT NOT NULL DEFAULT '居民身份证',
-  id_number TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID        NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+  real_name       TEXT        NOT NULL,
+  id_type         TEXT        NOT NULL DEFAULT '居民身份证',
+  id_number       TEXT,
+  id_number_hash  TEXT,
+  id_number_last4 TEXT,
+  status          TEXT        NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.verifications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "verifications_select_own" ON public.verifications
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "verifications_insert_own" ON public.verifications
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "verifications_update_own" ON public.verifications
-  FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "verifications_select_own" ON public.verifications;
+CREATE POLICY "verifications_select_own" ON public.verifications FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "verifications_insert_own" ON public.verifications;
+CREATE POLICY "verifications_insert_own" ON public.verifications FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "verifications_update_own" ON public.verifications;
+CREATE POLICY "verifications_update_own" ON public.verifications FOR UPDATE USING (auth.uid() = user_id);
 
 -- ============================================================
 -- 8. feedback 意见反馈表
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.feedback (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  content TEXT NOT NULL,
-  contact TEXT NOT NULL DEFAULT '',
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID        REFERENCES auth.users(id) ON DELETE SET NULL,
+  content    TEXT        NOT NULL,
+  contact    TEXT        NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "feedback_insert_own" ON public.feedback
-  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "feedback_select_own" ON public.feedback
-  FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "feedback_insert_own" ON public.feedback;
+CREATE POLICY "feedback_insert_own" ON public.feedback FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+DROP POLICY IF EXISTS "feedback_select_own" ON public.feedback;
+CREATE POLICY "feedback_select_own" ON public.feedback FOR SELECT USING (auth.uid() = user_id);
 
 -- ============================================================
--- 9. 初始宠物数据（种子数据）
+-- 9. lost_pet_alerts 失踪宠物警报表
 -- ============================================================
-INSERT INTO public.pets (id, name, breed, age_text, distance, gender, image_url, price, location, weight, description, is_urgent, story, health, foster_parent_name, foster_parent_avatar, category)
-VALUES
-(
-  'barnaby', '巴纳比', '比格犬', '2 岁', '2.5 公里', 'male',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDd8gze_FbFR8b9nFnJNyOBvi8n2pH4no0g_zJ1k2Aw6qqvK5qhU8YoiqjxSP3gvgkv1FBd0NEdo0f_qnDB__yP61rj-5YbYCKHADWzPfEBgBxQLb_1MAmoZVypHJtkLPdotuG1fiITFIp4SPSEUzcYYRhmlzhFj7qeKlS66YNBjvvGrB2e8BMmeifJjofOdoZFEitzggIprTp0z8QFf55Z5wZe-kFmlj0oiX6pBwzyVj8BJlVdJ1UYDmboQb0muaa-_NBVISrZulqI',
-  500, '上海市静安区', '12 Kg', '巴纳比是一只充满活力的比格犬，嗅觉灵敏，性格开朗。',
-  TRUE,
-  '巴纳比是我们从一个关闭的繁殖场救助出来的。虽然前半生比较艰难，但他依然对人类充满了信任和爱。他特别喜欢户外活动，需要一个能经常带他散步的主人。',
-  '{"vaccines": "已接种", "neuter": "已绝育", "chip": "已注册", "training": "基础训练"}',
-  '张医生',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDgVPpxg8HIumU7EpauZP9ZlqirzBnKLdJFGK3sIDR54NKgoMvWdCpOnQkKZ8i9pqr-ZwirabrItbbt19Vsp_Ks7rywsrwksbIasOlJwu_nzBSwVNsNqNU-QjsRBwhhPM8QaaDUMMydnkQNIgx8i8vIvll48zgOHd8bQb75k7SbZ6Q_TY-_ic2MXjg2J04C-ZxWIQTqZSB2ovFoiPFZMYQSivk3XgoNPRSlgXwh6z0jYRNW1FiTPEJPxBeGSAmJTnizmRheXOoL44o',
-  'dog'
-),
-(
-  'misty', '米斯蒂', '虎斑猫', '4 个月', '1.2 公里', 'female',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuCnNyWWqfayP1GgoxDLIagfEmeZpxpSLxyRczO5g2dEhb1Y2WU3CqfXgBG0sPuT6IsImFWOs8FXEsNO3E6sMcyiNUqgdtcKHbMm6GT_dYZzB8PNAYnsuMmMpRVJ0bXKPfMJVVo2Lp52fzmMi2zAAykB-xhAet5KgBlH5tDcf6R5o4FXEc7_rrzlEvdCGWqv-JqFLWz7Fd0e2BMg39xz2OXzBwE-I3_qI2CgoURwotKKGDxYIRAQphIRi_nSQkGJWC_ox-TARYfcQ_M',
-  200, '上海市黄浦区', '2.5 Kg', '米斯蒂是一只害羞但温柔的小猫。',
-  FALSE,
-  '米斯蒂是在暴雨天被发现在车底下的。她现在非常健康，喜欢玩逗猫棒，希望能找一个安静温暖的家。',
-  '{"vaccines": "第一针", "neuter": "未绝育", "chip": "未注册", "training": "会用猫砂"}',
-  '王阿姨',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAmMrcfJyvmWq2f5POlSJWVrfw-9KNg547O1zLwC_giy9H7xKmjt07WYCse6tuVmlgUkoaIDPjt-vVhkBuF3BypTzcm-0pncSBcY98BnlWhqREqJYI3noZpdcYhlTp-wOaUNB3ht2TFx_XdrFe6FD-muNyni4oATKVG0P8pC0C4Q8IUbWBcV7LAFHCrHeRE1L3flJ-r1enfIvHFNfRBh9AQYjvhCkuWuNdAmViSofN2JvGOBwC7Kxe5RoxN93VcRqTejRIdx4ulOm0',
-  'cat'
-),
-(
-  'loki', '洛基', '混血犬', '3 岁', '5 公里', 'male',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDyoly3o-HDa495YtgbRAZC-DUAjSNunRIHui8CrO8Jfg-67GJXjzA0iRdVvv7MEYrOy9rNqPSWIXCO6jHy-2cr4Sgn5rKLmjV7klXPoJFL4-_JbzTX-V-QMgiIqR8LSuMJLQp2pq1aJN3cGKm9ODrfeQN0YKyYH8-Tts7KNu7KEBjtOKsxTQ1vj-7KsLb0PhEkFaIdDkz-jT9gXaG5BzBt2ZGBA9WVuj9dwxm4P1g4Q0xuEAOhpOAfq7VXRTX4p1v9I0xrX-AGFys',
-  0, '上海市闵行区', '18 Kg', '洛基是一只聪明且忠诚的伙伴。',
-  FALSE,
-  '洛基因为原主人搬家而被遗弃。他受过良好的训练，会握手、坐下等指令。他对人非常友善，很适合有大孩子的家庭。',
-  '{"vaccines": "已接种", "neuter": "已绝育", "chip": "已注册", "training": "高级指令"}',
-  '陈教练',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuClcJ1kGSejxdskDILVxhF1567_vIwNfhM3gcP6seQ8Lbd1W1W6sUL5ikTIseOuweE2Ve_y3g6xH-xlcrMsnN93yy66WF73_YpdBvJUgWJRHX0UGeLwU_J-aL8PaSkrAdJ_6MDpAwFgZJ7Iaj4pmpOzK3FnDLAEEswV75fVEkLyaU9kDH7Y27M8y37lItAq6WqhETeZdkMPZug5jCwCWh9wr3xsOO-4sv9QaP0iXuDyjwPOO2v6Y1khyFOr5ZETMBJFfa3ddu8Y5Wo',
-  'dog'
-),
-(
-  'oreo', '奥利奥', '兔子', '1 岁', '800 米', 'male',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDnJi9iaykKdohg7fHpgDWu4KY8RPG6SyDwUls-nuFJpu38VJpayP-YxepNnXrf8vIU83Q1bV1eJL_IzKZfE9Sxz-LxBj9bVZd3eu-rk3-3V8mz7MNQrpnyeA_k1p4jN772gqcLzSL8AJ9FeC0xBNQQXbXXLMfnri9MC1UqcmSDqllTSrkvBZjlc232DNWtMmZ6t0IGhJER94kmnYSvKqcvKc9b3uuNfW-1nB1NyCYm8MdjGnX1sFClevTSPOFvBNPXxSUaH4y3wG8',
-  80, '上海市徐汇区', '1.5 Kg', '奥利奥是一只黑白相间的侏儒兔。',
-  FALSE,
-  '奥利奥喜欢吃胡萝卜叶子，性格比较独立，但也喜欢被轻轻抚摸耳朵。需要注意家里电线的收纳哦。',
-  '{"vaccines": "无", "neuter": "未绝育", "chip": "无", "training": "定点如厕"}',
-  'Lisa',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDorhYGu9SF5uyTjjc6bDH8TOer8nKZdWo8tg0-px8a1iTeKeo4VajYdgvR_R-UaoF4iTNdIlALu-Vio5txHrqOFdR_VNncoAxj_K3gNs29_Ph9MdsosHynjBlCdiXjyQjP2YSXGphbx-IQHKNpNeV5FCyryG_4zJ5-Lz42mo--EtABfPxeFDG2U54VsoSrx1cNr57sIOlrVLzVXCue49Xbmjdj3qqA36X5gvg1A3-LbNUUOyix8OJcvEsZXl5EtgYZCGiZ312bPAI',
-  'rabbit'
-),
-(
-  'daisy', '戴西', '金毛', '6 个月', '3.5 公里', 'female',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuBCkU61rSmnjutmCrsbw4HL4dLoYNxu_xnKeDkqPqkyiu_NwlS2ntXZEQ1yRnNi1mVKNEpqn1EaS6OZ_I1jkXH4Xh-S8jUjgBrpSdeNv7c7UMfr1sjgOLNydQ4iRMThPx8UKWwdG2ibTpooI3A9tPysSrbf8kqW6Cdke6Nb9K-JL31oSxrFRqZmf8JE-0OHw3YLwitRBSKLRVDiNyDP_YeI1dkJSfjZyH_9vV2C2lwb_XikvKZf7tdI5Jsw3UPC2UJbNTAGfteKgGI',
-  800, '上海市浦东新区', '15 Kg', '戴西是人见人爱的小天使。',
-  FALSE,
-  '戴西是一只性格极好的金毛幼犬，对所有人都很热情。她正处于学习的黄金期，希望能找到一个愿意陪伴她成长的家庭。',
-  '{"vaccines": "已接种", "neuter": "未绝育", "chip": "已注册", "training": "正在学习"}',
-  '李先生',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuClcJ1kGSejxdskDILVxhF1567_vIwNfhM3gcP6seQ8Lbd1W1W6sUL5ikTIseOuweE2Ve_y3g6xH-xlcrMsnN93yy66WF73_YpdBvJUgWJRHX0UGeLwU_J-aL8PaSkrAdJ_6MDpAwFgZJ7Iaj4pmpOzK3FnDLAEEswV75fVEkLyaU9kDH7Y27M8y37lItAq6WqhETeZdkMPZug5jCwCWh9wr3xsOO-4sv9QaP0iXuDyjwPOO2v6Y1khyFOr5ZETMBJFfa3ddu8Y5Wo',
-  'dog'
-),
-(
-  'snowball', '雪球', '波斯猫', '8 周', '7.2 公里', 'female',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuBju-3FCGXhCA7vnMiCzeUtK1MD4WetSIkQ1wmPEa72Uw8N0GOIf69OY95sG9JqcqNCjfxqZ5wbfZC6dzmcny_DC19_BOpuP1eeEK1aCo4Y3Soq13ddCHQFwClG8mc_YKCDKuBTFwBsaHapDrGEDnwBugsy2_of4yBHWu1ao88XhG2kBVU1-rDFCXQD4WEAYnGwL4g4ffKUj8Lyocc9iNANBjmXUba9JSpWe2AQQWPU14YhzbAV7DltCk0D-ITVW220OghqFupozzs',
-  1200, '上海市长宁区', '0.8 Kg', '雪球是一只优雅的白色波斯猫宝宝。',
-  FALSE,
-  '雪球需要精心的毛发护理。她性格比较安静，喜欢在窗台上晒太阳。',
-  '{"vaccines": "第一针", "neuter": "未绝育", "chip": "无", "training": "会用猫砂"}',
-  'Sarah',
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuDorhYGu9SF5uyTjjc6bDH8TOer8nKZdWo8tg0-px8a1iTeKeo4VajYdgvR_R-UaoF4iTNdIlALu-Vio5txHrqOFdR_VNncoAxj_K3gNs29_Ph9MdsosHynjBlCdiXjyQjP2YSXGphbx-IQHKNpNeV5FCyryG_4zJ5-Lz42mo--EtABfPxeFDG2U54VsoSrx1cNr57sIOlrVLzVXCue49Xbmjdj3qqA36X5gvg1A3-LbNUUOyix8OJcvEsZXl5EtgYZCGiZ312bPAI',
-  'cat'
-),
-(
-  'pudding', '布丁', '金丝熊', '3 个月', '2.1 公里', 'female',
-  'https://placehold.co/600x400?text=Hamster',
-  50, '上海市虹口区', '0.2 Kg', '布丁是一只亲人好奇的小仓鼠。',
-  FALSE,
-  '布丁喜欢夜间活动，需要安静的笼养环境与稳定作息。',
-  '{"vaccines": "无", "neuter": "不适用", "chip": "无", "training": "适应手喂"}',
-  '叶阿姨',
-  'https://placehold.co/128x128?text=FP',
-  'hamster'
-),
-(
-  'atlas', '阿特拉斯', '巴西红耳龟', '1 岁', '4.6 公里', 'male',
-  'https://placehold.co/600x400?text=Turtle',
-  120, '上海市浦东新区', '0.6 Kg', '阿特拉斯性格安静，喜欢晒背。',
-  FALSE,
-  '需要稳定水温与晒台空间，适合有养龟经验的家庭。',
-  '{"vaccines": "无", "neuter": "不适用", "chip": "无", "training": "适应环境"}',
-  '周先生',
-  'https://placehold.co/128x128?text=FP',
-  'turtle'
-),
-(
-  'bubble', '泡泡', '孔雀鱼', '6 个月', '1.4 公里', 'female',
-  'https://placehold.co/600x400?text=Fish',
-  20, '上海市杨浦区', '0.1 Kg', '泡泡是一条活泼的小孔雀鱼。',
-  FALSE,
-  '适合入门级鱼缸，水质稳定即可健康成长。',
-  '{"vaccines": "无", "neuter": "不适用", "chip": "无", "training": "适应鱼缸"}',
-  '阿泽',
-  'https://placehold.co/128x128?text=FP',
-  'fish'
-),
-(
-  'sky', '小空', '虎皮鹦鹉', '8 个月', '2.8 公里', 'female',
-  'https://placehold.co/600x400?text=Bird',
-  180, '上海市普陀区', '0.4 Kg', '小空喜欢学声音，性格活泼。',
-  FALSE,
-  '小空擅长互动，需要每天放飞与陪伴时间。',
-  '{"vaccines": "无", "neuter": "不适用", "chip": "无", "training": "上手训练"}',
-  '杨女士',
-  'https://placehold.co/128x128?text=FP',
-  'bird'
-),
-(
-  'mocha', '摩卡', '荷兰兔', '10 个月', '3.1 公里', 'male',
-  'https://placehold.co/600x400?text=Rabbit',
-  90, '上海市徐汇区', '1.7 Kg', '摩卡温顺亲人，喜欢啃草饼。',
-  FALSE,
-  '需要宽敞活动空间与定期修剪指甲。',
-  '{"vaccines": "无", "neuter": "未绝育", "chip": "无", "training": "定点如厕"}',
-  '陶姐',
-  'https://placehold.co/128x128?text=FP',
-  'rabbit'
-),
-(
-  'lucky', '幸运', '拉布拉多', '1 岁', '6.3 公里', 'male',
-  'https://placehold.co/600x400?text=Dog',
-  600, '上海市宝山区', '24 Kg', '幸运乐观外向，适合家庭陪伴。',
-  FALSE,
-  '幸运喜欢户外活动，需要规律遛弯与训练。',
-  '{"vaccines": "已接种", "neuter": "未绝育", "chip": "已注册", "training": "基础训练"}',
-  '韩先生',
-  'https://placehold.co/128x128?text=FP',
-  'dog'
-),
-(
-  'momo', '茉茉', '英短蓝白', '1 岁', '2.2 公里', 'female',
-  'https://placehold.co/600x400?text=Cat',
-  380, '上海市静安区', '3.8 Kg', '茉茉亲人黏人，适合新手家庭。',
-  FALSE,
-  '已适应猫砂盆，性格安静，喜欢晒太阳。',
-  '{"vaccines": "已接种", "neuter": "已绝育", "chip": "无", "training": "会用猫砂"}',
-  '林小姐',
-  'https://placehold.co/128x128?text=FP',
-  'cat'
-),
-(
-  'peanut', '花生', '刺猬', '5 个月', '1.9 公里', 'female',
-  'https://placehold.co/600x400?text=Hedgehog',
-  150, '上海市闵行区', '0.5 Kg', '花生性格温和，需要安静环境。',
-  FALSE,
-  '花生夜行性较强，需要稳定温度与躲避屋。',
-  '{"vaccines": "无", "neuter": "不适用", "chip": "无", "training": "适应环境"}',
-  '许先生',
-  'https://placehold.co/128x128?text=FP',
-  'other'
-)
-ON CONFLICT (id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS public.lost_pet_alerts (
+  id            UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID             NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pet_name      TEXT             NOT NULL,
+  pet_type      TEXT             NOT NULL DEFAULT 'other',
+  pet_breed     TEXT,
+  pet_color     TEXT,
+  pet_gender    TEXT             CHECK (pet_gender IN ('male', 'female', 'unknown')),
+  pet_age_text  TEXT,
+  avatar_url    TEXT,
+  description   TEXT             NOT NULL,
+  lost_at       TIMESTAMPTZ      NOT NULL,
+  last_seen_at  TIMESTAMPTZ,
+  location_text TEXT,
+  latitude      DOUBLE PRECISION,
+  longitude     DOUBLE PRECISION,
+  radius_km     INTEGER          NOT NULL DEFAULT 10,
+  reward_text   TEXT,
+  contact_note  TEXT,
+  status        TEXT             NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
+  is_urgent     BOOLEAN          NOT NULL DEFAULT FALSE,
+  closed_at     TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.lost_pet_alerts ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_lost_alerts_status_created ON public.lost_pet_alerts (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_lost_alerts_geo ON public.lost_pet_alerts (latitude, longitude);
+
+DROP POLICY IF EXISTS "Active alerts readable by all" ON public.lost_pet_alerts;
+CREATE POLICY "Active alerts readable by all" ON public.lost_pet_alerts FOR SELECT
+  USING (status = 'active' OR auth.uid() = user_id);
+DROP POLICY IF EXISTS "Authors can insert own alerts" ON public.lost_pet_alerts;
+CREATE POLICY "Authors can insert own alerts" ON public.lost_pet_alerts FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Authors can update own alerts" ON public.lost_pet_alerts;
+CREATE POLICY "Authors can update own alerts" ON public.lost_pet_alerts FOR UPDATE USING (auth.uid() = user_id);
+
+-- ============================================================
+-- 10. lost_pet_sightings 目击线索表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.lost_pet_sightings (
+  id            UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  alert_id      UUID             NOT NULL REFERENCES public.lost_pet_alerts(id) ON DELETE CASCADE,
+  reporter_id   UUID             NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  sighting_note TEXT             NOT NULL,
+  location_text TEXT,
+  latitude      DOUBLE PRECISION,
+  longitude     DOUBLE PRECISION,
+  sighted_at    TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+  contact_hint  TEXT,
+  created_at    TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.lost_pet_sightings ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_lost_sightings_alert_created ON public.lost_pet_sightings (alert_id, created_at DESC);
+
+DROP POLICY IF EXISTS "Sightings readable by alert owner or reporter" ON public.lost_pet_sightings;
+CREATE POLICY "Sightings readable by alert owner or reporter" ON public.lost_pet_sightings FOR SELECT
+  USING (reporter_id = auth.uid() OR EXISTS (
+    SELECT 1 FROM public.lost_pet_alerts a WHERE a.id = alert_id AND a.user_id = auth.uid()
+  ));
+DROP POLICY IF EXISTS "Logged in users can insert sightings" ON public.lost_pet_sightings;
+CREATE POLICY "Logged in users can insert sightings" ON public.lost_pet_sightings FOR INSERT
+  WITH CHECK (auth.uid() = reporter_id);
+
+-- ============================================================
+-- 11. adoption_match_scores AI 领养匹配评分表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.adoption_match_scores (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id            UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pet_id             TEXT        NOT NULL,
+  application_id     UUID,
+  overall_score      INTEGER     NOT NULL CHECK (overall_score BETWEEN 0 AND 100),
+  stability_score    INTEGER     NOT NULL CHECK (stability_score BETWEEN 0 AND 100),
+  time_score         INTEGER     NOT NULL CHECK (time_score BETWEEN 0 AND 100),
+  cost_score         INTEGER     NOT NULL CHECK (cost_score BETWEEN 0 AND 100),
+  experience_score   INTEGER     NOT NULL CHECK (experience_score BETWEEN 0 AND 100),
+  allergy_risk_level TEXT        NOT NULL DEFAULT 'low' CHECK (allergy_risk_level IN ('low', 'medium', 'high')),
+  summary            TEXT        NOT NULL,
+  risk_notes         TEXT,
+  suggestions        TEXT,
+  raw_payload        JSONB,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.adoption_match_scores ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_match_scores_user_pet ON public.adoption_match_scores (user_id, pet_id);
+CREATE INDEX IF NOT EXISTS idx_match_scores_pet ON public.adoption_match_scores (pet_id);
+
+DROP POLICY IF EXISTS "Users can read own match scores" ON public.adoption_match_scores;
+CREATE POLICY "Users can read own match scores" ON public.adoption_match_scores FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own match scores" ON public.adoption_match_scores;
+CREATE POLICY "Users can insert own match scores" ON public.adoption_match_scores FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Pet owners can read scores for their pets" ON public.adoption_match_scores;
+CREATE POLICY "Pet owners can read scores for their pets" ON public.adoption_match_scores FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.pets p WHERE p.id = adoption_match_scores.pet_id AND p.user_id = auth.uid()));
+
+-- ============================================================
+-- 12. adoption_milestones 领养流程里程碑表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.adoption_milestones (
+  id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id       UUID        NOT NULL REFERENCES public.adoption_applications(id) ON DELETE CASCADE,
+  pet_id               TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  adopter_id           UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  owner_id             UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  stage                TEXT        NOT NULL CHECK (stage IN ('chatting', 'meet', 'trial', 'adopted')),
+  status               TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed')),
+  confirmed_by_adopter BOOLEAN     NOT NULL DEFAULT FALSE,
+  confirmed_by_owner   BOOLEAN     NOT NULL DEFAULT FALSE,
+  note                 TEXT,
+  confirmed_at         TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (application_id, stage)
+);
+
+ALTER TABLE public.adoption_milestones ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_adoption_milestones_application ON public.adoption_milestones (application_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_adoption_milestones_participants ON public.adoption_milestones (adopter_id, owner_id);
+
+DROP POLICY IF EXISTS "Participants can read milestones" ON public.adoption_milestones;
+CREATE POLICY "Participants can read milestones" ON public.adoption_milestones FOR SELECT
+  USING (auth.uid() = adopter_id OR auth.uid() = owner_id);
+DROP POLICY IF EXISTS "Participants can insert milestones" ON public.adoption_milestones;
+CREATE POLICY "Participants can insert milestones" ON public.adoption_milestones FOR INSERT
+  WITH CHECK (auth.uid() = adopter_id OR auth.uid() = owner_id);
+DROP POLICY IF EXISTS "Participants can update milestones" ON public.adoption_milestones;
+CREATE POLICY "Participants can update milestones" ON public.adoption_milestones FOR UPDATE
+  USING (auth.uid() = adopter_id OR auth.uid() = owner_id)
+  WITH CHECK (auth.uid() = adopter_id OR auth.uid() = owner_id);
+
+-- ============================================================
+-- 13. rescue_tasks 救助协作任务表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.rescue_tasks (
+  id             UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id     UUID             NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title          TEXT             NOT NULL,
+  task_type      TEXT             NOT NULL CHECK (task_type IN ('feeding', 'medical', 'transport', 'foster', 'supplies')),
+  description    TEXT,
+  location_text  TEXT,
+  latitude       DOUBLE PRECISION,
+  longitude      DOUBLE PRECISION,
+  window_start   TIMESTAMPTZ      NOT NULL,
+  window_end     TIMESTAMPTZ      NOT NULL,
+  status         TEXT             NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'claimed', 'completed', 'cancelled')),
+  assignee_id    UUID             REFERENCES auth.users(id) ON DELETE SET NULL,
+  max_assignees  INTEGER          NOT NULL DEFAULT 1 CHECK (max_assignees >= 1),
+  claimed_count  INTEGER          NOT NULL DEFAULT 0 CHECK (claimed_count >= 0),
+  completed_note TEXT,
+  completed_at   TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_rescue_task_window CHECK (window_end > window_start)
+);
+
+ALTER TABLE public.rescue_tasks ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_rescue_tasks_status_window ON public.rescue_tasks (status, window_start);
+CREATE INDEX IF NOT EXISTS idx_rescue_tasks_assignee_status ON public.rescue_tasks (assignee_id, status);
+
+DROP POLICY IF EXISTS "Authenticated users can read rescue tasks" ON public.rescue_tasks;
+CREATE POLICY "Authenticated users can read rescue tasks" ON public.rescue_tasks FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Users can create own rescue tasks" ON public.rescue_tasks;
+CREATE POLICY "Users can create own rescue tasks" ON public.rescue_tasks FOR INSERT WITH CHECK (auth.uid() = creator_id);
+DROP POLICY IF EXISTS "Creator or assignee can update rescue tasks" ON public.rescue_tasks;
+CREATE POLICY "Creator or assignee can update rescue tasks" ON public.rescue_tasks FOR UPDATE
+  USING (auth.uid() = creator_id OR EXISTS (
+    SELECT 1 FROM public.rescue_task_claims c
+    WHERE c.task_id = rescue_tasks.id AND c.user_id = auth.uid() AND c.status IN ('approved', 'completed')
+  ))
+  WITH CHECK (auth.uid() = creator_id OR EXISTS (
+    SELECT 1 FROM public.rescue_task_claims c
+    WHERE c.task_id = rescue_tasks.id AND c.user_id = auth.uid() AND c.status IN ('approved', 'completed')
+  ));
+
+-- ============================================================
+-- 14. rescue_task_claims 救助任务认领表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.rescue_task_claims (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id        UUID        NOT NULL REFERENCES public.rescue_tasks(id) ON DELETE CASCADE,
+  user_id        UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status         TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'completed')),
+  completed_note TEXT,
+  completed_at   TIMESTAMPTZ,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(task_id, user_id)
+);
+
+ALTER TABLE public.rescue_task_claims ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_rescue_task_claims_task_status ON public.rescue_task_claims (task_id, status);
+CREATE INDEX IF NOT EXISTS idx_rescue_task_claims_user ON public.rescue_task_claims (user_id, status);
+
+DROP POLICY IF EXISTS "Authenticated users can read rescue task claims" ON public.rescue_task_claims;
+CREATE POLICY "Authenticated users can read rescue task claims" ON public.rescue_task_claims FOR SELECT USING (auth.role() = 'authenticated');
+DROP POLICY IF EXISTS "Users can create own rescue task claims" ON public.rescue_task_claims;
+CREATE POLICY "Users can create own rescue task claims" ON public.rescue_task_claims FOR INSERT WITH CHECK (auth.uid() = user_id AND status = 'pending');
+DROP POLICY IF EXISTS "Users can update own rescue task claims" ON public.rescue_task_claims;
+CREATE POLICY "Users can update own rescue task claims" ON public.rescue_task_claims FOR UPDATE
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id AND status = 'completed');
+DROP POLICY IF EXISTS "Creators can approve rescue task claims" ON public.rescue_task_claims;
+CREATE POLICY "Creators can approve rescue task claims" ON public.rescue_task_claims FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.rescue_tasks t WHERE t.id = rescue_task_claims.task_id AND t.creator_id = auth.uid()))
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.rescue_tasks t WHERE t.id = rescue_task_claims.task_id AND t.creator_id = auth.uid())
+    AND status IN ('pending', 'approved', 'completed')
+  );
+
+-- ============================================================
+-- 15. pet_health_diary 宠物健康日记表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.pet_health_diary (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id         TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  author_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  mood_level     SMALLINT    CHECK (mood_level BETWEEN 1 AND 5),
+  appetite_level SMALLINT    CHECK (appetite_level BETWEEN 1 AND 5),
+  energy_level   SMALLINT    CHECK (energy_level BETWEEN 1 AND 5),
+  sleep_hours    NUMERIC(4,1),
+  weight_kg      NUMERIC(5,2),
+  symptoms       TEXT,
+  note           TEXT,
+  image_url      TEXT,
+  recorded_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.pet_health_diary ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_pet_health_diary_pet_recorded ON public.pet_health_diary (pet_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pet_health_diary_author ON public.pet_health_diary (author_id);
+
+DROP POLICY IF EXISTS "Author can read own diary" ON public.pet_health_diary;
+CREATE POLICY "Author can read own diary" ON public.pet_health_diary FOR SELECT USING (author_id = auth.uid());
+DROP POLICY IF EXISTS "Author can insert diary" ON public.pet_health_diary;
+CREATE POLICY "Author can insert diary" ON public.pet_health_diary FOR INSERT WITH CHECK (author_id = auth.uid());
+DROP POLICY IF EXISTS "Author can update diary" ON public.pet_health_diary;
+CREATE POLICY "Author can update diary" ON public.pet_health_diary FOR UPDATE USING (author_id = auth.uid());
+DROP POLICY IF EXISTS "Author can delete diary" ON public.pet_health_diary;
+CREATE POLICY "Author can delete diary" ON public.pet_health_diary FOR DELETE USING (author_id = auth.uid());
+
+-- ============================================================
+-- 16. pet_health_insights AI 健康洞察表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.pet_health_insights (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id          TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  user_id         UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  period_days     SMALLINT    NOT NULL,
+  insight_summary TEXT        NOT NULL,
+  risk_level      TEXT        NOT NULL CHECK (risk_level IN ('low', 'medium', 'high')),
+  signals         JSONB       DEFAULT '[]',
+  suggestions     JSONB       DEFAULT '[]',
+  raw_payload     JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.pet_health_insights ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_pet_health_insights_pet_user ON public.pet_health_insights (pet_id, user_id, created_at DESC);
+
+DROP POLICY IF EXISTS "Owner can read own insights" ON public.pet_health_insights;
+CREATE POLICY "Owner can read own insights" ON public.pet_health_insights FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "Owner can insert insights" ON public.pet_health_insights;
+CREATE POLICY "Owner can insert insights" ON public.pet_health_insights FOR INSERT WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "Owner can delete insights" ON public.pet_health_insights;
+CREATE POLICY "Owner can delete insights" ON public.pet_health_insights FOR DELETE USING (user_id = auth.uid());
+
+-- ============================================================
+-- 17. pet_logs 领养后成长日志表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.pet_logs (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  pet_id     TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  author_id  UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content    TEXT        NOT NULL,
+  image_url  TEXT        NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.pet_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_pet_logs_pet_id_created_at ON public.pet_logs (pet_id, created_at DESC);
+
+DROP POLICY IF EXISTS "pet_logs_select_all" ON public.pet_logs;
+CREATE POLICY "pet_logs_select_all" ON public.pet_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "pet_logs_insert_adopter" ON public.pet_logs;
+CREATE POLICY "pet_logs_insert_adopter" ON public.pet_logs FOR INSERT
+  WITH CHECK (auth.uid() = author_id AND EXISTS (
+    SELECT 1 FROM public.adoption_applications aa
+    WHERE aa.pet_id = pet_logs.pet_id AND aa.user_id = auth.uid() AND aa.status = 'approved'
+  ));
+DROP POLICY IF EXISTS "pet_logs_update_own" ON public.pet_logs;
+CREATE POLICY "pet_logs_update_own" ON public.pet_logs FOR UPDATE USING (auth.uid() = author_id) WITH CHECK (auth.uid() = author_id);
+DROP POLICY IF EXISTS "pet_logs_delete_own" ON public.pet_logs;
+CREATE POLICY "pet_logs_delete_own" ON public.pet_logs FOR DELETE USING (auth.uid() = author_id);
+
+-- ============================================================
+-- 18. follow_up_tasks 领养后回访任务表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.follow_up_tasks (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pet_id       TEXT        NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+  title        TEXT        NOT NULL,
+  due_date     DATE        NOT NULL,
+  status       TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+  feedback     TEXT        NOT NULL DEFAULT '',
+  completed_at TIMESTAMPTZ,
+  template_key TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.follow_up_tasks ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS idx_follow_up_tasks_user_status_due ON public.follow_up_tasks (user_id, status, due_date);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_follow_up_tasks_template_key
+  ON public.follow_up_tasks (user_id, pet_id, template_key) WHERE template_key IS NOT NULL;
+
+DROP POLICY IF EXISTS "follow_up_tasks_select_own" ON public.follow_up_tasks;
+CREATE POLICY "follow_up_tasks_select_own" ON public.follow_up_tasks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "follow_up_tasks_insert_own" ON public.follow_up_tasks;
+CREATE POLICY "follow_up_tasks_insert_own" ON public.follow_up_tasks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "follow_up_tasks_update_own" ON public.follow_up_tasks;
+CREATE POLICY "follow_up_tasks_update_own" ON public.follow_up_tasks FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================
+-- 19. reports 举报表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.reports (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  target_type TEXT        NOT NULL CHECK (target_type IN ('user', 'pet', 'message')),
+  target_id   TEXT        NOT NULL,
+  reason      TEXT        NOT NULL,
+  detail      TEXT        NOT NULL DEFAULT '',
+  status      TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "reports_insert_own" ON public.reports;
+CREATE POLICY "reports_insert_own" ON public.reports FOR INSERT WITH CHECK (auth.uid() = reporter_id);
+DROP POLICY IF EXISTS "reports_select_own" ON public.reports;
+CREATE POLICY "reports_select_own" ON public.reports FOR SELECT USING (auth.uid() = reporter_id);
+
+-- ============================================================
+-- 20. blocks 用户屏蔽表
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.blocks (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  blocker_id UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  blocked_id UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(blocker_id, blocked_id)
+);
+
+ALTER TABLE public.blocks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "blocks_insert_own" ON public.blocks;
+CREATE POLICY "blocks_insert_own" ON public.blocks FOR INSERT WITH CHECK (auth.uid() = blocker_id);
+DROP POLICY IF EXISTS "blocks_select_own" ON public.blocks;
+CREATE POLICY "blocks_select_own" ON public.blocks FOR SELECT USING (auth.uid() = blocker_id);
+DROP POLICY IF EXISTS "blocks_delete_own" ON public.blocks;
+CREATE POLICY "blocks_delete_own" ON public.blocks FOR DELETE USING (auth.uid() = blocker_id);

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useToast } from '../contexts/ToastContext';
 import { fetchLostAlerts, haversineKm } from '../lib/api/lostAlerts';
+import { cacheLostAlerts, getCachedLostAlerts } from '../lib/offline/cache';
 import type { LostPetAlert } from '../types';
 
 const PET_TYPE_LABELS: Record<string, string> = {
@@ -38,6 +39,7 @@ const LostAlerts: React.FC = () => {
 
   const [alerts, setAlerts] = useState<LostPetAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLon, setUserLon] = useState<number | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -73,8 +75,18 @@ const LostAlerts: React.FC = () => {
           : undefined;
       const data = await fetchLostAlerts(params);
       setAlerts(data);
+      setUsingCache(false);
+      cacheLostAlerts(data);
     } catch {
-      showToast('加载失踪警报失败，请重试');
+      // 网络失败时尝试读取离线缓存
+      const cached = getCachedLostAlerts();
+      if (cached && cached.length > 0) {
+        setAlerts(cached);
+        setUsingCache(true);
+        showToast('网络不可用，显示缓存数据');
+      } else {
+        showToast('加载失踪警报失败，请重试');
+      }
     } finally {
       setLoading(false);
     }
@@ -111,6 +123,14 @@ const LostAlerts: React.FC = () => {
             <span className="material-icons-round text-black text-xl">add</span>
           </button>
         </div>
+
+        {/* 离线缓存提示 */}
+        {usingCache && (
+          <div className="flex items-center gap-1.5 mb-2 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 text-xs">
+            <span className="material-icons-round text-sm">history</span>
+            <span>当前显示最近缓存的数据，恢复网络后将自动更新</span>
+          </div>
+        )}
 
         {/* 半径筛选 */}
         <div className="flex items-center gap-2">

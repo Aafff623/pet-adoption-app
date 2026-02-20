@@ -29,7 +29,56 @@ export default defineConfig(({ mode }) => {
               { src: '/pets/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
               { src: '/pets/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
             ]
-          }
+          },
+          workbox: {
+            // 预缓存 App Shell
+            globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+            // 运行时缓存策略
+            runtimeCaching: [
+              {
+                // Supabase REST API — stale-while-revalidate，最多缓存 50 条，保留 1 小时
+                urlPattern: /https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+                handler: 'StaleWhileRevalidate',
+                options: {
+                  cacheName: 'supabase-rest-cache',
+                  expiration: {
+                    maxEntries: 50,
+                    maxAgeSeconds: 60 * 60, // 1 小时
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200],
+                  },
+                },
+              },
+              {
+                // Supabase Storage 图片 — CacheFirst，保留 7 天
+                urlPattern: /https:\/\/.*\.supabase\.co\/storage\/v1\/.*/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'supabase-storage-cache',
+                  expiration: {
+                    maxEntries: 100,
+                    maxAgeSeconds: 60 * 60 * 24 * 7, // 7 天
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200],
+                  },
+                },
+              },
+              {
+                // 宠物图片等静态资源 — CacheFirst
+                urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'images-cache',
+                  expiration: {
+                    maxEntries: 80,
+                    maxAgeSeconds: 60 * 60 * 24 * 3, // 3 天
+                  },
+                },
+              },
+            ],
+          },
         })
       ],
       define: {

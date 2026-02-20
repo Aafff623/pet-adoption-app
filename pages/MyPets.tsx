@@ -384,26 +384,38 @@ const MyPets: React.FC = () => {
                 <p className="text-sm text-gray-500 dark:text-zinc-400">{pet.breed}</p>
                 <span className="inline-block mt-1 text-xs bg-green-100 dark:bg-primary/20 text-green-700 dark:text-primary px-2 py-0.5 rounded-full">已领养</span>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void openLogManager(pet);
-                }}
-                className="px-3 py-2 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300"
-                aria-label={`管理 ${pet.name} 的成长日志`}
-              >
-                管理日志
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openFollowUpCreator(pet);
-                }}
-                className="px-3 py-2 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300"
-                aria-label={`为 ${pet.name} 创建回访任务`}
-              >
-                创建回访
-              </button>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void openLogManager(pet);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300"
+                  aria-label={`管理 ${pet.name} 的成长日志`}
+                >
+                  成长日志
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/pet-health/${pet.id}`);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                  aria-label={`查看 ${pet.name} 的健康日记`}
+                >
+                  健康日记
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openFollowUpCreator(pet);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300"
+                  aria-label={`为 ${pet.name} 创建回访任务`}
+                >
+                  创建回访
+                </button>
+              </div>
             </div>
           ))
         ) : (
