@@ -10,7 +10,7 @@ import LocationPicker, { formatLocationDisplay, type LocationOption } from '../c
 import { DEFAULT_LOCATION } from '../lib/data/regions';
 import type { Pet } from '../types';
 
-type CategoryId = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
+type CategoryId = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
 
 const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: 'all', label: '全部', icon: '🐾' },
@@ -18,6 +18,10 @@ const CATEGORIES: { id: CategoryId; label: string; icon: string }[] = [
   { id: 'cat', label: '猫猫', icon: '🐱' },
   { id: 'rabbit', label: '兔子', icon: '🐰' },
   { id: 'bird', label: '鸟类', icon: '🦜' },
+  { id: 'hamster', label: '仓鼠', icon: '🐹' },
+  { id: 'turtle', label: '乌龟', icon: '🐢' },
+  { id: 'fish', label: '鱼类', icon: '🐟' },
+  { id: 'other', label: '其他', icon: '🐾' },
 ];
 
 const ASPECT_RATIOS: Record<string, string> = {

@@ -16,6 +16,17 @@ const PET_GENDER_LABELS: Record<string, string> = {
   unknown: '不确定',
 };
 
+const PET_TYPE_LABELS: Record<string, string> = {
+  dog: '狗狗',
+  cat: '猫猫',
+  rabbit: '兔子',
+  bird: '鸟类',
+  hamster: '仓鼠',
+  turtle: '乌龟',
+  fish: '鱼类',
+  other: '其他',
+};
+
 const formatDate = (isoStr: string): string => {
   const d = new Date(isoStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -172,7 +183,7 @@ const LostAlertDetail: React.FC = () => {
                   <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">{alert.petName}</h2>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-zinc-400">
-                  {alert.petType === 'dog' ? '狗狗' : alert.petType === 'cat' ? '猫猫' : alert.petType}
+                  {PET_TYPE_LABELS[alert.petType] ?? alert.petType}
                   {alert.petBreed ? ` · ${alert.petBreed}` : ''}
                   {alert.petGender ? ` · ${PET_GENDER_LABELS[alert.petGender]}` : ''}
                   {alert.petAgeText ? ` · ${alert.petAgeText}` : ''}

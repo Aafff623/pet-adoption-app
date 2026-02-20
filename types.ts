@@ -26,7 +26,7 @@ export interface Pet {
     chip: string;
     training: string;
   };
-  category?: 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
+  category?: 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
   status?: 'available' | 'adopted' | 'pending' | 'pending_review';
   userId?: string | null;
 }
@@ -85,6 +85,25 @@ export interface AdoptionApplication {
   message: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
+}
+
+export type AdoptionMilestoneStage = 'chatting' | 'meet' | 'trial' | 'adopted';
+export type AdoptionMilestoneStatus = 'pending' | 'confirmed';
+
+export interface AdoptionMilestone {
+  id: string;
+  applicationId: string;
+  petId: string;
+  adopterId: string;
+  ownerId: string;
+  stage: AdoptionMilestoneStage;
+  status: AdoptionMilestoneStatus;
+  confirmedByAdopter: boolean;
+  confirmedByOwner: boolean;
+  note?: string | null;
+  confirmedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================

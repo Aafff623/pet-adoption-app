@@ -258,6 +258,17 @@ const ChatDetail: React.FC = () => {
           )}
           <h1 className="text-lg font-bold text-gray-900 dark:text-zinc-100">{conversation.otherUserName}</h1>
         </button>
+        {!conversation.isSystem && (
+          <button
+            type="button"
+            onClick={() => navigate('/adoption-progress')}
+            className="ml-2 px-2.5 py-1.5 rounded-lg text-sm text-gray-600 dark:text-zinc-400 hover:bg-gray-100 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all flex items-center gap-1"
+            aria-label="查看流程"
+          >
+            <span className="material-icons-round text-base">timeline</span>
+            <span>流程沟通中</span>
+          </button>
+        )}
         <div className="flex-1"></div>
         <button
           onClick={() => setShowMoreMenu(true)}

@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import type { Pet } from '../../types';
 
-type PetCategory = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
+type PetCategory = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
 
 const mapRowToPet = (row: Record<string, unknown>): Pet => ({
   id: row.id as string,

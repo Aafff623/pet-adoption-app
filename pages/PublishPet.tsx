@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { addPet } from '../lib/api/pets';
 
-type PetCategory = 'dog' | 'cat' | 'rabbit' | 'bird' | 'other';
+type PetCategory = 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
 type PetGender = 'male' | 'female';
 
 const CATEGORIES: { id: PetCategory; label: string; icon: string }[] = [
@@ -12,6 +12,9 @@ const CATEGORIES: { id: PetCategory; label: string; icon: string }[] = [
   { id: 'cat', label: '猫猫', icon: '🐱' },
   { id: 'rabbit', label: '兔子', icon: '🐰' },
   { id: 'bird', label: '鸟类', icon: '🦜' },
+  { id: 'hamster', label: '仓鼠', icon: '🐹' },
+  { id: 'turtle', label: '乌龟', icon: '🐢' },
+  { id: 'fish', label: '鱼类', icon: '🐟' },
   { id: 'other', label: '其他', icon: '🐾' },
 ];
 

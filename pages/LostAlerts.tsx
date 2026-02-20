@@ -10,6 +10,9 @@ const PET_TYPE_LABELS: Record<string, string> = {
   cat: '猫猫',
   rabbit: '兔子',
   bird: '鸟类',
+  hamster: '仓鼠',
+  turtle: '乌龟',
+  fish: '鱼类',
   other: '其他',
 };
 

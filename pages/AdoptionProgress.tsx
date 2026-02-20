@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { fetchMyApplications } from '../lib/api/adoption';
+import { ensureAdoptionMilestones, confirmMilestone } from '../lib/api/adoptionMilestones';
 import { fetchPetById } from '../lib/api/pets';
 import AdoptionProgressTimeline from '../components/AdoptionProgressTimeline';
-import type { AdoptionApplication, Pet } from '../types';
+import type { AdoptionApplication, AdoptionMilestone, Pet } from '../types';
 
 interface AppWithPet {
   application: AdoptionApplication;
@@ -23,6 +24,8 @@ const AdoptionProgress: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [items, setItems] = useState<AppWithPet[]>([]);
+  const [milestonesMap, setMilestonesMap] = useState<Record<string, AdoptionMilestone[]>>({});
+  const [milestoneSubmittingId, setMilestoneSubmittingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -39,6 +42,21 @@ const AdoptionProgress: React.FC = () => {
           }))
         );
         setItems(withPets);
+
+        const nextMilestonesMap: Record<string, AdoptionMilestone[]> = {};
+        await Promise.all(
+          withPets.map(async ({ application, pet }) => {
+            if (application.status !== 'approved' || !pet?.userId) return;
+            const milestones = await ensureAdoptionMilestones({
+              applicationId: application.id,
+              petId: application.petId,
+              adopterId: user.id,
+              ownerId: pet.userId,
+            });
+            nextMilestonesMap[application.id] = milestones;
+          })
+        );
+        setMilestonesMap(nextMilestonesMap);
       } catch {
         showToast('加载申请记录失败，请重试');
       } finally {
@@ -51,6 +69,44 @@ const AdoptionProgress: React.FC = () => {
   const handleBack = () => {
     if (window.history.length > 1) navigate(-1);
     else navigate('/profile', { replace: true });
+  };
+
+  const handleConfirmMilestone = async (
+    applicationId: string,
+    milestoneId: string,
+    confirmed: boolean,
+    note?: string
+  ) => {
+    if (!user) return;
+
+    const target = items.find(({ application }) => application.id === applicationId);
+    if (!target || target.application.status !== 'approved' || !target.pet?.userId) return;
+
+    setMilestoneSubmittingId(applicationId);
+    try {
+      await confirmMilestone({
+        milestoneId,
+        actorUserId: user.id,
+        confirmed,
+        note,
+      });
+
+      const milestones = await ensureAdoptionMilestones({
+        applicationId,
+        petId: target.application.petId,
+        adopterId: user.id,
+        ownerId: target.pet.userId,
+      });
+
+      setMilestonesMap(prev => ({
+        ...prev,
+        [applicationId]: milestones,
+      }));
+    } catch {
+      showToast('流程更新失败，请稍后重试');
+    } finally {
+      setMilestoneSubmittingId(null);
+    }
   };
 
   return (
@@ -141,7 +197,17 @@ const AdoptionProgress: React.FC = () => {
                 {/* 展开：进度时间轴 */}
                 {isExpanded && (
                   <div className="px-6 pb-6 pt-2 border-t border-gray-50 dark:border-zinc-700">
-                    <AdoptionProgressTimeline application={application} />
+                    {milestoneSubmittingId === application.id && (
+                      <p className="text-xs text-gray-400 dark:text-zinc-500 mb-2">流程更新中...</p>
+                    )}
+                    <AdoptionProgressTimeline
+                      application={application}
+                      milestones={milestonesMap[application.id]}
+                      currentUserId={user?.id}
+                      onConfirmMilestone={(milestoneId, confirmed, note) =>
+                        handleConfirmMilestone(application.id, milestoneId, confirmed, note)
+                      }
+                    />
 
                     {/* 申请详情摘要 */}
                     <div className="mt-4 bg-gray-50 dark:bg-zinc-700 rounded-xl p-4 space-y-2 text-sm">

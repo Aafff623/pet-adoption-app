@@ -10,6 +10,9 @@ const PET_TYPES = [
   { id: 'cat', label: '猫猫', icon: '🐱' },
   { id: 'rabbit', label: '兔子', icon: '🐰' },
   { id: 'bird', label: '鸟类', icon: '🦜' },
+  { id: 'hamster', label: '仓鼠', icon: '🐹' },
+  { id: 'turtle', label: '乌龟', icon: '🐢' },
+  { id: 'fish', label: '鱼类', icon: '🐟' },
   { id: 'other', label: '其他', icon: '🐾' },
 ];
 
