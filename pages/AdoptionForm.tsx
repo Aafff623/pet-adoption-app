@@ -140,6 +140,7 @@ const AdoptionForm: React.FC = () => {
   const [scoreTaskRunning, setScoreTaskRunning] = useState(false);
   const [scoreRefining, setScoreRefining] = useState(false);
   const [showScoreNoticeModal, setShowScoreNoticeModal] = useState(false);
+  const [showScoreBenefitModal, setShowScoreBenefitModal] = useState(false);
 
   useEffect(() => {
     if (!petId) return;
@@ -198,19 +199,25 @@ const AdoptionForm: React.FC = () => {
     }
   };
 
-  const handleGetMatchScore = () => {
-    if (!user || !pet) return;
+  const startBackgroundScoreTask = (options?: { showLaunchModal?: boolean; showQueuedToast?: boolean }): boolean => {
+    if (!user || !pet) return false;
     if (message.trim().length < 10) {
       showToast('请先填写申请寄语（至少 10 字）再获取评分');
-      return;
+      return false;
     }
     if (scoreTaskRunning) {
       showToast('积分正在后台计算中，请稍候');
-      return;
+      return false;
     }
 
-    setShowScoreNoticeModal(true);
-    window.setTimeout(() => setShowScoreNoticeModal(false), 2400);
+    const showLaunchModal = options?.showLaunchModal ?? false;
+    const showQueuedToast = options?.showQueuedToast ?? false;
+
+    if (showLaunchModal) {
+      setShowScoreNoticeModal(true);
+      window.setTimeout(() => setShowScoreNoticeModal(false), 2400);
+    }
+
     setScoreTaskRunning(true);
     setScoreRefining(true);
 
@@ -228,29 +235,12 @@ const AdoptionForm: React.FC = () => {
     };
 
     void (async () => {
-      let systemConvId: string | null = null;
-      try {
-        systemConvId = await getOrCreateSystemConversation(user.id);
-        await insertSystemReply(systemConvId, `已收到“${pet.name}”的积分评估请求，正在为您计算中，完成后会自动通知您。`);
-      } catch {
-        // 忽略系统消息失败，不影响主流程
-      }
-
       try {
         const score = await generateAndSaveMatchScore(pet, questionnaire, user.id, petId, undefined, {
           onRefined: refined => {
             setMatchScore(refined);
             setScoreRefining(false);
-            showToast('AI 评估已完成，报告已发送到消息');
-
-            void (async () => {
-              try {
-                const convId = systemConvId ?? await getOrCreateSystemConversation(user.id);
-                await insertSystemReply(convId, buildScoreReportText(pet.name, refined));
-              } catch {
-                // 忽略通知失败
-              }
-            })();
+            showToast('AI 评估已完成，请到消息中心查看报告');
           },
           onRefineError: () => {
             setScoreRefining(false);
@@ -259,7 +249,9 @@ const AdoptionForm: React.FC = () => {
         });
 
         setMatchScore(score);
-        showToast('积分已进入后台计算，您可直接提交申请');
+        if (showQueuedToast) {
+          showToast('积分已进入后台计算，您可直接提交申请');
+        }
       } catch (err) {
         setScoreRefining(false);
         showToast(err instanceof Error ? err.message : 'AI 评分失败，请稍后重试');
@@ -267,11 +259,50 @@ const AdoptionForm: React.FC = () => {
         setScoreTaskRunning(false);
       }
     })();
+
+    return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFormValid) return;
+  const queueAssessmentReportAfterSubmit = (systemConvId: string, petName: string) => {
+    window.setTimeout(() => {
+      void (async () => {
+        if (!user) return;
+
+        const trySendReport = async (remainingRetry: number): Promise<void> => {
+          const latest = await fetchMatchScore(user.id, petId).catch(() => null);
+          if (latest) {
+            await insertSystemReply(systemConvId, buildScoreReportText(petName, latest));
+            return;
+          }
+          if (remainingRetry > 0) {
+            window.setTimeout(() => {
+              void trySendReport(remainingRetry - 1);
+            }, 6000);
+            return;
+          }
+          await insertSystemReply(systemConvId, 'AI 评估正在生成中，完成后会自动补发评估报告。');
+        };
+
+        await trySendReport(1);
+      })();
+    }, 10000);
+  };
+
+  const handleGetMatchScore = () => {
+    const started = startBackgroundScoreTask({ showLaunchModal: true, showQueuedToast: true });
+    if (!started || !user || !pet) return;
+
+    void (async () => {
+      try {
+        const systemConvId = await getOrCreateSystemConversation(user.id);
+        await insertSystemReply(systemConvId, `已收到“${pet.name}”的积分评估请求，正在为您计算中，完成后会自动通知您。`);
+      } catch {
+        // 忽略系统消息失败，不影响主流程
+      }
+    })();
+  };
+
+  const submitApplication = async () => {
     if (!user) {
       navigate('/login');
       return;
@@ -301,11 +332,42 @@ const AdoptionForm: React.FC = () => {
       setTimeout(() => navigate('/messages'), 2000);
       setTimeout(() => insertSystemReply(systemConvId, '审核员已收到您的申请，正在核实信息，预计 1-3 个工作日完成审核。'), 3000);
       setTimeout(() => insertSystemReply(systemConvId, '您的申请已进入最终审核阶段，结果将通过消息通知您，请耐心等待！'), 8000);
+
+      const shouldGenerateReport = message.trim().length >= 10;
+      if (shouldGenerateReport) {
+        if (!matchScore && !scoreTaskRunning && !scoreRefining) {
+          const started = startBackgroundScoreTask({ showLaunchModal: false, showQueuedToast: false });
+          if (started && pet) {
+            setTimeout(() => {
+              void insertSystemReply(systemConvId, `已自动为“${pet.name}”发起积分评估，约 10 秒后推送评估报告。`);
+            }, 1000);
+          }
+        }
+        queueAssessmentReportAfterSubmit(systemConvId, pet?.name ?? '该宠物');
+      }
     } catch {
       setErrorMsg('提交失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid) return;
+
+    const shouldNudgeAiScore =
+      message.trim().length >= 10 &&
+      !matchScore &&
+      !scoreTaskRunning &&
+      !scoreRefining;
+
+    if (shouldNudgeAiScore) {
+      setShowScoreBenefitModal(true);
+      return;
+    }
+
+    await submitApplication();
   };
 
   return (
@@ -335,6 +397,44 @@ const AdoptionForm: React.FC = () => {
                 className="px-3 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-200 active:scale-[0.97] transition-all"
               >
                 我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showScoreBenefitModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-[996] px-6">
+          <div className="w-full max-w-sm bg-white dark:bg-zinc-800 rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-zinc-700">
+            <div className="flex items-start gap-3">
+              <span className="material-icons-round text-primary">tips_and_updates</span>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">先做 AI 评估，领养通过率更高</p>
+                <p className="text-xs text-gray-600 dark:text-zinc-300 leading-relaxed">
+                  AI 会从居住稳定性、陪伴时间、经济能力、经验准备度给出评估，并生成专属建议。报告会自动发送到消息，帮助你更快完善申请。
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScoreBenefitModal(false);
+                  handleGetMatchScore();
+                }}
+                className="py-2 text-xs rounded-lg bg-primary text-black font-semibold active:scale-[0.97] transition-all"
+              >
+                先去 AI 评估
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowScoreBenefitModal(false);
+                  void submitApplication();
+                }}
+                className="py-2 text-xs rounded-lg bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-200 active:scale-[0.97] transition-all"
+              >
+                仍然直接提交
               </button>
             </div>
           </div>

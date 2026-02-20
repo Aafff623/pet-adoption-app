@@ -19,6 +19,7 @@ const Profile: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [pointsExpanded, setPointsExpanded] = useState(false);
 
   const [editNickname, setEditNickname] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -114,6 +115,13 @@ const Profile: React.FC = () => {
   const avatarUrl = profile?.avatarUrl || DEFAULT_AVATAR;
   const userId = user?.id?.slice(0, 8) ?? '--------';
   const email = user?.email ?? '';
+  const currentPoints = (profile?.adoptedCount ?? 0) * 200 + applyingCount * 30 + (profile?.followingCount ?? 0) * 10;
+
+  const redeemPreview = [
+    { name: '领养优先券', points: 300, icon: 'local_activity' },
+    { name: 'AI 健康报告券', points: 180, icon: 'monitor_heart' },
+    { name: '公益周边抽奖券', points: 120, icon: 'redeem' },
+  ];
 
   return (
     <div className="bg-background-light dark:bg-zinc-900 min-h-screen pb-20 fade-in">
@@ -188,6 +196,52 @@ const Profile: React.FC = () => {
               <span className="text-2xl font-bold font-sans text-gray-900 dark:text-zinc-100 mb-1">{profile?.adoptedCount ?? 0}</span>
               <span className="text-xs text-gray-500 dark:text-zinc-400 font-medium">已领养</span>
             </div>
+          </div>
+        </div>
+
+        {/* 积分展示（仅展示，不含兑换） */}
+        <div className="px-6 mb-6">
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-zinc-700">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                  <span className="material-icons-round text-base">stars</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">我的积分</p>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400">可用于后续积分商城兑换</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-extrabold text-primary leading-none">{currentPoints}</p>
+                <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1">当前可用</p>
+              </div>
+            </div>
+
+              <button
+                type="button"
+                onClick={() => setPointsExpanded(prev => !prev)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-background-light dark:bg-zinc-900 text-left active:scale-[0.99] transition-all"
+              >
+                <span className="text-xs font-semibold text-gray-500 dark:text-zinc-400">可兑换内容预览</span>
+                <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-base">
+                  {pointsExpanded ? 'expand_less' : 'expand_more'}
+                </span>
+              </button>
+
+              {pointsExpanded && (
+                <div className="mt-2 rounded-xl bg-background-light dark:bg-zinc-900 p-3 space-y-2">
+                  {redeemPreview.map(item => (
+                    <div key={item.name} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-zinc-700 last:border-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-icons-round text-primary text-base">{item.icon}</span>
+                        <span className="text-sm text-gray-800 dark:text-zinc-200 truncate">{item.name}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-600 dark:text-zinc-300">{item.points} 积分</span>
+                    </div>
+                  ))}
+                </div>
+              )}
           </div>
         </div>
 

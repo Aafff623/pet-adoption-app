@@ -19,24 +19,74 @@ const Messages: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [reportPopup, setReportPopup] = useState<{ visible: boolean; content: string }>({ visible: false, content: '' });
+  const reportPopupTimerRef = useRef<number | null>(null);
+  const lastReportKeyRef = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
   useEffect(() => {
     if (!user) return;
+
+    const maybeShowReportPopup = (nextConversations: Conversation[]) => {
+      const latestSystemReport = nextConversations.find(conv => {
+        if (!conv.isSystem) return false;
+        if (conv.unreadCount <= 0) return false;
+        return conv.lastMessage.includes('评估报告') || conv.lastMessage.includes('AI 匹配评估');
+      });
+
+      if (!latestSystemReport) return;
+
+      const reportKey = `${latestSystemReport.id}_${latestSystemReport.lastMessageTime}_${latestSystemReport.lastMessage}`;
+      if (reportKey === lastReportKeyRef.current) return;
+
+      lastReportKeyRef.current = reportKey;
+      setReportPopup({ visible: true, content: latestSystemReport.lastMessage });
+
+      if (reportPopupTimerRef.current) {
+        window.clearTimeout(reportPopupTimerRef.current);
+      }
+      reportPopupTimerRef.current = window.setTimeout(() => {
+        setReportPopup({ visible: false, content: '' });
+      }, 4500);
+    };
+
     const load = async () => {
       setLoading(true);
       try {
         const data = await fetchConversations(user.id);
         setConversations(data);
+        maybeShowReportPopup(data);
       } catch {
         showToast('加载消息列表失败，请重试');
       } finally {
         setLoading(false);
       }
     };
+
+    const refresh = async () => {
+      try {
+        const data = await fetchConversations(user.id);
+        setConversations(data);
+        maybeShowReportPopup(data);
+      } catch {
+        // 静默刷新失败，不打断用户操作
+      }
+    };
+
     load();
+
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 3000);
+
+    return () => {
+      window.clearInterval(timer);
+      if (reportPopupTimerRef.current) {
+        window.clearTimeout(reportPopupTimerRef.current);
+      }
+    };
   }, [user, showToast]);
 
   useEffect(() => {
@@ -110,6 +160,20 @@ const Messages: React.FC = () => {
 
   return (
     <div className="bg-background-light dark:bg-zinc-900 min-h-screen flex flex-col fade-in">
+      {reportPopup.visible && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-[1000]">
+          <div className="bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 rounded-2xl shadow-lg p-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0 text-blue-500">
+              <span className="material-icons-round text-lg">campaign</span>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">AI 评估报告已送达</p>
+              <p className="text-xs text-gray-600 dark:text-zinc-300 mt-1 line-clamp-2">{reportPopup.content}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="px-6 pt-10 pb-4 shrink-0 bg-background-light/95 dark:bg-zinc-900/95 backdrop-blur-sm sticky top-0 z-40">
         <div className="flex items-center justify-between mb-1">
           {editMode ? (
