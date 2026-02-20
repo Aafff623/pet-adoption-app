@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { addPet } from '../lib/api/pets';
+import { enhancedButtonClick } from '../lib/utils/interactions';
 
 type PetCategory = 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
 type PetGender = 'male' | 'female';
@@ -340,7 +341,12 @@ const PublishPet: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-4 bg-primary text-black font-bold rounded-2xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50"
+            onClick={(e) => {
+              if (!submitting) {
+                enhancedButtonClick(e, { ripple: true, glow: true, primary: true });
+              }
+            }}
+            className="w-full py-4 bg-primary text-black font-bold rounded-2xl shadow-lg shadow-primary/20 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 glow-effect ripple-container"
           >
             {submitting ? '提交中...' : '提交审核'}
           </button>

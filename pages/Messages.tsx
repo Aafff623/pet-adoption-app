@@ -399,7 +399,7 @@ const Messages: React.FC = () => {
       {!editMode && (
         <button
           onClick={() => setShowNewChat(true)}
-          className="fixed bottom-24 right-6 w-14 h-14 bg-primary rounded-full shadow-lg shadow-primary/20 flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-transform z-40"
+          className="fixed bottom-24 right-6 w-14 h-14 bg-primary rounded-full fab-pulse flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-transform z-40"
           aria-label="发起新会话"
         >
           <span className="material-icons-round text-2xl">add_comment</span>

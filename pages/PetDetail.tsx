@@ -10,6 +10,7 @@ import { fetchMatchScore } from '../lib/api/adoptionMatch';
 import PetLogTimeline from '../components/PetLogTimeline';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { createHeartParticles, createRipple } from '../lib/utils/interactions';
 import type { Pet, AdoptionApplication, PetLog, AdoptionMatchScore } from '../types';
 
 const PET_PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='62' font-size='40' text-anchor='middle'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E`;
@@ -134,11 +135,19 @@ const PetDetail: React.FC = () => {
     }
   };
 
-  const handleFavoriteToggle = async () => {
+  const handleFavoriteToggle = async (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!pet) return;
     if (!user) {
       navigate('/login');
       return;
+    }
+
+    // 触发涟漪效果
+    createRipple(e);
+    
+    // 如果是添加收藏，触发心形粒子特效
+    if (!isFavorited) {
+      createHeartParticles(e, 8);
     }
 
     setFavoriteLoading(true);
@@ -228,7 +237,7 @@ const PetDetail: React.FC = () => {
           <button
             onClick={handleFavoriteToggle}
             disabled={favoriteLoading}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md hover:bg-black/30 transition-colors group pointer-events-auto active:scale-95 cursor-pointer disabled:opacity-50"
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md hover:bg-black/30 transition-colors group pointer-events-auto active:scale-95 cursor-pointer disabled:opacity-50 ripple-container"
             aria-label={isFavorited ? '取消收藏' : '收藏'}
           >
             <span className={`material-icons-round text-2xl ${isFavorited ? 'text-red-500' : 'group-hover:text-red-500 transition-colors'}`}>

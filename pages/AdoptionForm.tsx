@@ -8,6 +8,7 @@ import { fetchPetById } from '../lib/api/pets';
 import { generateAndSaveMatchScore, fetchMatchScore } from '../lib/api/adoptionMatch';
 import type { AdoptionMatchScore, MatchQuestionnaire } from '../types';
 import type { Pet } from '../types';
+import { enhancedButtonClick } from '../lib/utils/interactions';
 
 const MAX_MESSAGE_LENGTH = 200;
 
@@ -746,8 +747,13 @@ const AdoptionForm: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 p-5 bg-white/90 backdrop-blur-lg border-t border-gray-100 z-40">
         <div className="max-w-lg mx-auto w-full">
           <button
-            onClick={handleSubmit}
-            className={`w-full bg-primary text-black font-bold text-lg py-4 rounded-xl shadow-lg shadow-primary/25 transition-all duration-200 flex items-center justify-center space-x-2 ${
+            onClick={(e) => {
+              if (isFormValid && !isLoading) {
+                enhancedButtonClick(e, { ripple: true, glow: true, primary: true });
+                submitApplication();
+              }
+            }}
+            className={`w-full bg-primary text-black font-bold text-lg py-4 rounded-xl shadow-lg shadow-primary/25 transition-all duration-200 flex items-center justify-center space-x-2 glow-effect ripple-container ${
               !isFormValid || isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#4dd625] active:scale-[0.98]'
             }`}
             disabled={!isFormValid || isLoading}

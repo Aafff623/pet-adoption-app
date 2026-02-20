@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { createLostAlert } from '../lib/api/lostAlerts';
 import type { LostPetGender, CreateLostAlertParams } from '../types';
+import { enhancedButtonClick } from '../lib/utils/interactions';
 
 const PET_TYPES = [
   { id: 'dog', label: '狗狗', icon: '🐶' },
@@ -400,7 +401,12 @@ const PublishLostAlert: React.FC = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-4 rounded-2xl bg-primary text-black font-bold text-sm shadow-lg shadow-primary/30 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+            onClick={(e) => {
+              if (!submitting) {
+                enhancedButtonClick(e, { ripple: true, glow: true, primary: true });
+              }
+            }}
+            className="w-full py-4 rounded-2xl bg-primary text-black font-bold text-sm shadow-lg shadow-primary/30 hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 glow-effect ripple-container"
           >
             {submitting ? '发布中…' : '🚨 发布失踪警报'}
           </button>
