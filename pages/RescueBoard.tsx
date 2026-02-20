@@ -84,18 +84,20 @@ const RescueBoard: React.FC = () => {
     }
   };
 
+  // 仅挂载时拉一次全量数据，切换 Tab 全部走本地过滤，避免反复请求
   useEffect(() => {
-    const status = activeFilter === 'all' ? undefined : activeFilter;
-    void load(status);
-  }, [activeFilter]);
+    void load(undefined);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const displayedTasks = useMemo(() => {
     const now = Date.now();
-    return tasks.map(task => ({
-      ...task,
-      isExpired: task.status !== 'completed' && task.status !== 'cancelled' && new Date(task.windowEnd).getTime() < now,
-    }));
-  }, [tasks]);
+    return tasks
+      .filter(task => activeFilter === 'all' || task.status === activeFilter)
+      .map(task => ({
+        ...task,
+        isExpired: task.status !== 'completed' && task.status !== 'cancelled' && new Date(task.windowEnd).getTime() < now,
+      }));
+  }, [tasks, activeFilter]);
 
   const resetForm = () => {
     setTitle('');
