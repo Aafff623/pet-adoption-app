@@ -248,3 +248,53 @@ export interface SubmitSightingParams {
   sightedAt: string;
   contactHint?: string;
 }
+
+// ============================================================
+// Phase 2: AI 领养匹配评分
+// ============================================================
+export type AllergyRiskLevel = 'low' | 'medium' | 'high';
+
+export interface AdoptionMatchScore {
+  id: string;
+  userId: string;
+  petId: string;
+  applicationId?: string | null;
+  overallScore: number;
+  stabilityScore: number;
+  timeScore: number;
+  costScore: number;
+  experienceScore: number;
+  allergyRiskLevel: AllergyRiskLevel;
+  summary: string;
+  riskNotes?: string | null;
+  suggestions?: string | null;
+  rawPayload?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/** 匹配问卷填写内容 */
+export interface MatchQuestionnaire {
+  housingType: string;       // 住房情况
+  livingStatus: string;      // 居住状态
+  hasExperience: boolean;    // 养宠经验
+  homeSize: string;          // 住宅面积（'<50㎡' | '50-100㎡' | '>100㎡'）
+  dailyFreeHours: number;    // 每天可陪伴小时数
+  monthlyBudget: string;     // 每月预算（'<500' | '500-1000' | '>1000'）
+  hasAllergy: boolean;       // 是否有过敏史
+  hasOtherPets: boolean;     // 是否有其他宠物
+  workStyle: string;         // 工作方式（'远程' | '通勤' | '不规律'）
+  message: string;           // 申请寄语
+}
+
+/** AI 原始输出结构 */
+export interface MatchScoreRaw {
+  overall_score: number;
+  stability_score: number;
+  time_score: number;
+  cost_score: number;
+  experience_score: number;
+  allergy_risk_level: AllergyRiskLevel;
+  summary: string;
+  risk_notes: string;
+  suggestions: string;
+}

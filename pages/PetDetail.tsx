@@ -6,10 +6,11 @@ import { addFavorite, removeFavorite, checkIsFavorited } from '../lib/api/favori
 import { createOrFindConversation } from '../lib/api/messages';
 import { submitReport } from '../lib/api/reports';
 import { createPetLog, fetchPetLogs } from '../lib/api/petLogs';
+import { fetchMatchScore } from '../lib/api/adoptionMatch';
 import PetLogTimeline from '../components/PetLogTimeline';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import type { Pet, AdoptionApplication, PetLog } from '../types';
+import type { Pet, AdoptionApplication, PetLog, AdoptionMatchScore } from '../types';
 
 const PET_PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23f3f4f6'/%3E%3Ctext x='50' y='62' font-size='40' text-anchor='middle'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E`;
 
@@ -39,6 +40,7 @@ const PetDetail: React.FC = () => {
   const [petLogsLoading, setPetLogsLoading] = useState(false);
   const [newPetLogContent, setNewPetLogContent] = useState('');
   const [petLogSubmitting, setPetLogSubmitting] = useState(false);
+  const [matchScore, setMatchScore] = useState<AdoptionMatchScore | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +59,12 @@ const PetDetail: React.FC = () => {
         setIsFavorited(favorited);
         setUserApplication(application ?? null);
         setPetLogs(logs);
+
+        // 加载匹配评分（如有）
+        if (user && id) {
+          const score = await fetchMatchScore(user.id, id).catch(() => null);
+          setMatchScore(score);
+        }
       } catch {
         showToast('加载宠物详情失败，请重试');
       } finally {
@@ -309,6 +317,38 @@ const PetDetail: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* AI 匹配评分（登录用户且已生成） */}
+        {matchScore && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-zinc-100">AI 匹配评分</h2>
+              <span className={`text-2xl font-extrabold ${
+                matchScore.overallScore >= 75 ? 'text-green-500' : matchScore.overallScore >= 50 ? 'text-amber-500' : 'text-red-500'
+              }`}>{matchScore.overallScore}</span>
+            </div>
+            <div className="bg-white dark:bg-zinc-700 rounded-2xl p-4 border border-gray-100 dark:border-zinc-600 shadow-sm space-y-3">
+              {[
+                { label: '居住稳定性', score: matchScore.stabilityScore },
+                { label: '陪伴时间', score: matchScore.timeScore },
+                { label: '经济能力', score: matchScore.costScore },
+                { label: '经验准备度', score: matchScore.experienceScore },
+              ].map(item => (
+                <div key={item.label}>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-zinc-400 mb-1">
+                    <span>{item.label}</span>
+                    <span className="font-semibold">{item.score}</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-100 dark:bg-zinc-600 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${item.score}%` }} />
+                  </div>
+                </div>
+              ))}
+              <p className="text-sm text-gray-600 dark:text-zinc-300 pt-1 leading-relaxed">{matchScore.summary}</p>
+              <p className="text-[10px] text-gray-400 dark:text-zinc-500 text-center">仅供参考，不替代人工判断</p>
             </div>
           </div>
         )}
