@@ -183,7 +183,11 @@ VITE_DEEPSEEK_API_KEY=sk-xxxxxxxxxxxx
 | `add_adoption_milestones.sql` | 领养里程碑流程管理 | **Phase 3** |
 | `add_rescue_tasks.sql` | 救助协作任务表 + RLS 策略 | **Phase 4** |
 | `add_pet_health_diary.sql` | 健康日记 + AI 洞察表 | **Phase 5** |
+| `add_health_diary_storage.sql` | 健康日记图片 Storage 配置 | **Phase 5** |
 | `update_barnaby_image.sql` | 更新示例数据宠物图片（可选） | 数据修正 |
+
+> 💡 **Phase 6（PWA 离线救助包）** 不需要数据库迁移，仅需前端代码更新。  
+> 💡 **Phase 7（积分商城展示）** 为纯 UI 层展示，暂不入库，后续可接入真实积分系统。
 
 > 💡 **提示**：如果是全新项目，建议按上述顺序完整执行所有脚本；如果是从旧版本迁移，只执行缺失的脚本即可。
 
@@ -534,7 +538,59 @@ Hash 路由无需服务端配置，能直接部署到任意静态托管平台（
 
 ---
 
-## 📄 许可证
+## � 更新日志
+
+### 🎉 v0.4.0 - Phase 4-7 创新功能交付（2026-02-20）
+
+本次更新完成了 PetConnect 创新路线图的最后四个阶段，全面增强了救助协作、健康管理、离线能力和用户激励体系。
+
+#### ✨ 新增功能
+
+**Phase 4 - 救助协作任务板**
+- ✅ 新增救助任务发布、认领、完成反馈流程
+- ✅ 支持任务类型：喂养、送医、接送、临时寄养、物资采购
+- ✅ 实时任务状态管理（待接单 / 进行中 / 已完成 / 已取消）
+- ✅ 多人协同执行机制，可设置人数上限
+- 📄 新增文件：`lib/api/rescueTasks.ts`、`pages/RescueBoard.tsx`、`pages/RescueTaskDetail.tsx`
+- 🗄️ 数据库：`supabase/migrations/add_rescue_tasks.sql`
+
+**Phase 5 - AI 健康日记**
+- ✅ 结构化健康记录（心情、食欲、精力、睡眠、体重、症状）
+- ✅ AI 自动分析 7 天 / 30 天健康趋势
+- ✅ 异常提醒与喂养建议
+- ✅ 健康洞察历史记录
+- 📄 新增文件：`lib/api/healthDiary.ts`、`lib/api/healthInsights.ts`、`pages/PetHealthDiary.tsx`
+- 🗄️ 数据库：`supabase/migrations/add_pet_health_diary.sql`、`add_health_diary_storage.sql`
+
+**Phase 6 - PWA 离线救助包**
+- ✅ 失踪警报与救助任务离线缓存（12 小时有效期）
+- ✅ 离线操作队列（认领 / 完成 / 取消任务），联网后自动同步
+- ✅ 全局网络状态 Banner（离线提示 / 同步中 / 成功 / 失败重试）
+- ✅ Service Worker 缓存策略增强（Supabase REST + Storage）
+- 📄 新增文件：`lib/offline/cache.ts`、`lib/offline/syncQueue.ts`、`components/NetworkBanner.tsx`
+- ⚙️ 修改：`vite.config.ts`（workbox runtimeCaching）、`pages/LostAlerts.tsx`、`pages/RescueBoard.tsx`
+
+**Phase 7 - 积分商城展示（仅 UI）**
+- ✅ Profile 页新增积分卡片，实时计算可用积分（已领养 × 200 + 申请中 × 30 + 关注 × 10）
+- ✅ 可兑换内容预览（领养优先券、AI 健康报告券、公益周边抽奖券）
+- ✅ Messages 页新增 AI 评估报告送达弹窗提示（4.5 秒自动消失）
+- ✅ AdoptionForm 提交后 10 秒自动推送评估报告到系统消息
+- ⚙️ 修改：`pages/Profile.tsx`、`pages/Messages.tsx`、`pages/AdoptionForm.tsx`
+
+#### 🔧 技术优化
+- 统一规范化 SQL 迁移脚本命名（`supabase/migrations/` 目录）
+- 优化离线场景用户体验，支持弱网救助
+- 增强 PWA 缓存策略，图片与 API 分级缓存
+
+#### 📊 项目里程碑
+- ✅ 全部 7 个创新 Phase 已完成交付
+- ✅ 构建通过（`npm run build`），无 Breaking Changes
+- 📦 新增代码：4075+ 行
+- 🗄️ 数据库迁移：新增 2 个表（救助任务、健康日记）
+
+---
+
+## �📄 许可证
 
 本项目基于 [MIT License](LICENSE) 开源。
 ---
