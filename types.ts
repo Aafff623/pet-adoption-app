@@ -173,3 +173,78 @@ export interface FollowUpTask {
   completedAt?: string | null;
   createdAt: string;
 }
+
+// ============================================================
+// Phase 1: 失踪宠物应急广播
+// ============================================================
+export type LostAlertStatus = 'active' | 'closed';
+export type LostPetGender = 'male' | 'female' | 'unknown';
+
+export interface LostPetAlert {
+  id: string;
+  userId: string;
+  petName: string;
+  petType: string;
+  petBreed?: string | null;
+  petColor?: string | null;
+  petGender?: LostPetGender | null;
+  petAgeText?: string | null;
+  avatarUrl?: string | null;
+  description: string;
+  lostAt: string;
+  lastSeenAt?: string | null;
+  locationText?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  radiusKm: number;
+  rewardText?: string | null;
+  contactNote?: string | null;
+  status: LostAlertStatus;
+  isUrgent: boolean;
+  createdAt: string;
+  updatedAt: string;
+  closedAt?: string | null;
+}
+
+export interface LostPetSighting {
+  id: string;
+  alertId: string;
+  reporterId: string;
+  sightingNote: string;
+  locationText?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  sightedAt: string;
+  contactHint?: string | null;
+  createdAt: string;
+}
+
+export interface CreateLostAlertParams {
+  petName: string;
+  petType: string;
+  petBreed?: string;
+  petColor?: string;
+  petGender?: LostPetGender;
+  petAgeText?: string;
+  avatarUrl?: string;
+  description: string;
+  lostAt: string;
+  lastSeenAt?: string;
+  locationText?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm: number;
+  rewardText?: string;
+  contactNote?: string;
+  isUrgent: boolean;
+}
+
+export interface SubmitSightingParams {
+  alertId: string;
+  sightingNote: string;
+  locationText?: string;
+  latitude?: number;
+  longitude?: number;
+  sightedAt: string;
+  contactHint?: string;
+}

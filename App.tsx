@@ -27,6 +27,9 @@ import ThemeSettings from './pages/ThemeSettings';
 import RecycleBin from './pages/RecycleBin';
 import PublishPet from './pages/PublishPet';
 import AdoptionProgress from './pages/AdoptionProgress';
+import LostAlerts from './pages/LostAlerts';
+import PublishLostAlert from './pages/PublishLostAlert';
+import LostAlertDetail from './pages/LostAlertDetail';
 
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
   const { user, loading } = useAuth();
@@ -73,6 +76,9 @@ const AppRoutes: React.FC = () => {
       <Route path="/recycle-bin" element={<ProtectedRoute element={<RecycleBin />} />} />
       <Route path="/publish-pet" element={<ProtectedRoute element={<PublishPet />} />} />
       <Route path="/adoption-progress" element={<ProtectedRoute element={<AdoptionProgress />} />} />
+      <Route path="/lost-alerts" element={<LostAlerts />} />
+      <Route path="/lost-alerts/publish" element={<ProtectedRoute element={<PublishLostAlert />} />} />
+      <Route path="/lost-alerts/:id" element={<LostAlertDetail />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

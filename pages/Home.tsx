@@ -264,6 +264,23 @@ const Home: React.FC = () => {
           </div>
         </section>
 
+        {/* 失踪宠物广播入口 */}
+        <section>
+          <button
+            onClick={() => navigate('/lost-alerts')}
+            className="w-full flex items-center gap-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-100 dark:border-orange-800/40 rounded-2xl px-5 py-4 active:scale-[0.98] transition-all shadow-sm"
+          >
+            <div className="flex-shrink-0 w-10 h-10 bg-orange-100 dark:bg-orange-900/40 rounded-xl flex items-center justify-center">
+              <span className="text-xl">🔍</span>
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-bold text-orange-900 dark:text-orange-300">失踪宠物应急广播</p>
+              <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">查看附近走失宠物，提交目击线索</p>
+            </div>
+            <span className="material-icons-round text-orange-400 dark:text-orange-500">chevron_right</span>
+          </button>
+        </section>
+
         {/* 推荐伙伴轮播 */}
         <section>
           <div className="flex justify-between items-end mb-4">
