@@ -64,6 +64,15 @@ const Home: React.FC = () => {
   const [carouselFavoritedIds, setCarouselFavoritedIds] = useState<Set<string>>(new Set());
   const [carouselFavoriteLoading, setCarouselFavoriteLoading] = useState(false);
   const [hasNewRescueTask, setHasNewRescueTask] = useState(false);
+  const [isHeaderCompact, setIsHeaderCompact] = useState(false);
+  type ViewMode = 'grid' | 'list' | 'large';
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (localStorage.getItem('petconnect_view_mode') as ViewMode) ?? 'list'
+  );
+  const handleViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem('petconnect_view_mode', mode);
+  };
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const newArrivalsRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
@@ -135,6 +144,28 @@ const Home: React.FC = () => {
 
     void checkNewRescue();
   }, [user]);
+
+  // 滚动监听：收缩 header（带滞后区间防止抖动）
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          // 更大的滞后区间：向下滚动超过80px才收缩，向上滚动回到10px以下才展开
+          if (!isHeaderCompact && scrollY > 80) {
+            setIsHeaderCompact(true);
+          } else if (isHeaderCompact && scrollY < 10) {
+            setIsHeaderCompact(false);
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHeaderCompact]);
 
   // 关键词 500ms 防抖
   useEffect(() => {
@@ -234,64 +265,96 @@ const Home: React.FC = () => {
 
   return (
     <div className="pb-24 fade-in">
-      <header className="px-6 pt-8 pb-4 sticky top-0 z-40 bg-background-light/95 dark:bg-zinc-900/95 backdrop-blur-sm">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-gray-500 dark:text-zinc-400 mb-1">当前位置</span>
+      <header className={`px-6 sticky top-0 z-40 bg-background-light/95 dark:bg-zinc-900/95 backdrop-blur-sm ${
+        isHeaderCompact ? 'pt-2 pb-1.5' : 'pt-8 pb-3'
+      }`} style={{ transition: 'padding 0.4s ease-out' }}>
+        <div className={`flex justify-between items-center ${
+          isHeaderCompact ? 'mb-1.5' : 'mb-5'
+        }`} style={{ transition: 'margin 0.4s ease-out' }}>
+          <div className="flex flex-col overflow-hidden">
+            <span className={`text-xs font-medium text-gray-500 dark:text-zinc-400 ${
+              isHeaderCompact ? 'opacity-0 h-0 mb-0' : 'opacity-100 mb-1'
+            }`} style={{ transition: 'opacity 0.3s ease-out, height 0.3s ease-out, margin 0.3s ease-out' }}>当前位置</span>
             <button
               onClick={() => setShowLocationSheet(true)}
               className="flex items-center gap-1 group active:scale-[0.97] transition-transform"
               aria-label="选择城市"
             >
-              <span className="material-icons-round text-primary text-xl">location_on</span>
-              <span className="font-bold text-lg text-text-main dark:text-zinc-100 group-hover:text-primary transition-colors">
+              <span className={`material-icons-round text-primary ${
+                isHeaderCompact ? 'text-sm' : 'text-xl'
+              }`} style={{ transition: 'font-size 0.4s ease-out' }}>location_on</span>
+              <span className={`font-bold text-text-main dark:text-zinc-100 group-hover:text-primary ${
+                isHeaderCompact ? 'text-xs' : 'text-lg'
+              }`} style={{ transition: 'font-size 0.4s ease-out, color 0.2s' }}>
                 {formatLocationDisplay(selectedLocation)}
               </span>
-              <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-sm">expand_more</span>
+              <span className={`material-icons-round text-gray-400 dark:text-zinc-500 ${
+                isHeaderCompact ? 'text-[10px]' : 'text-sm'
+              }`} style={{ transition: 'font-size 0.4s ease-out' }}>expand_more</span>
             </button>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all shadow-sm"
+              className={`rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-transform shadow-sm ${
+                isHeaderCompact ? 'w-7 h-7' : 'w-10 h-10'
+              }`}
+              style={{ transition: 'width 0.4s ease-out, height 0.4s ease-out' }}
               aria-label={resolvedTheme === 'dark' ? '切换到亮色模式' : '切换到暗色模式'}
             >
-              <span className="material-icons-round text-gray-400 dark:text-zinc-500">
+              <span className={`material-icons-round text-gray-400 dark:text-zinc-500 ${
+                isHeaderCompact ? 'text-sm' : 'text-xl'
+              }`} style={{ transition: 'font-size 0.4s ease-out' }}>
                 {resolvedTheme === 'dark' ? 'light_mode' : 'dark_mode'}
               </span>
             </button>
             <button
               onClick={() => navigate('/messages')}
-              className="w-10 h-10 rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex items-center justify-center relative hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-all shadow-sm"
+              className={`rounded-full bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 flex items-center justify-center relative hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.97] transition-transform shadow-sm ${
+                isHeaderCompact ? 'w-7 h-7' : 'w-10 h-10'
+              }`}
+              style={{ transition: 'width 0.4s ease-out, height 0.4s ease-out' }}
             >
-              <span className="material-icons-round text-gray-400 dark:text-zinc-500">notifications</span>
+              <span className={`material-icons-round text-gray-400 dark:text-zinc-500 ${
+                isHeaderCompact ? 'text-sm' : 'text-xl'
+              }`} style={{ transition: 'font-size 0.4s ease-out' }}>notifications</span>
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
             </button>
           </div>
         </div>
         <div className="relative">
           <input
-            className="w-full h-12 pl-12 pr-12 rounded-2xl bg-white dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary/50 text-sm font-medium placeholder-gray-400 dark:placeholder-zinc-500 shadow-sm text-gray-900 dark:text-zinc-100"
+            className={`w-full pl-10 pr-10 rounded-2xl bg-white dark:bg-zinc-800 border-none focus:ring-2 focus:ring-primary/50 text-sm font-medium placeholder-gray-400 dark:placeholder-zinc-500 shadow-sm text-gray-900 dark:text-zinc-100 ${
+              isHeaderCompact ? 'h-8' : 'h-12'
+            }`}
+            style={{ transition: 'height 0.4s ease-out' }}
             placeholder="搜索宠物、品种..."
             type="text"
             value={searchKeyword}
             onChange={e => setSearchKeyword(e.target.value)}
             aria-label="搜索宠物"
           />
-          <span className="material-icons-round absolute left-4 top-3 text-gray-400 dark:text-zinc-500">search</span>
+          <span className={`material-icons-round absolute text-gray-400 dark:text-zinc-500 ${
+            isHeaderCompact ? 'left-3 top-1 text-base' : 'left-4 top-3 text-xl'
+          }`} style={{ transition: 'left 0.4s ease-out, top 0.4s ease-out, font-size 0.4s ease-out' }}>search</span>
           <button
             onClick={() => setShowFilterSheet(true)}
-            className="absolute right-3 top-2 bg-primary p-1.5 rounded-xl shadow-lg shadow-primary/30 active:scale-[0.95] transition-transform"
+            className={`absolute bg-primary rounded-xl shadow-lg shadow-primary/30 active:scale-[0.95] ${
+              isHeaderCompact ? 'right-2 top-0.5 p-1' : 'right-3 top-2 p-1.5'
+            }`}
+            style={{ transition: 'right 0.4s ease-out, top 0.4s ease-out, padding 0.4s ease-out' }}
             aria-label="筛选"
           >
-            <span className="material-icons-round text-white text-sm">tune</span>
+            <span className={`material-icons-round text-white ${
+              isHeaderCompact ? 'text-xs' : 'text-sm'
+            }`} style={{ transition: 'font-size 0.4s ease-out' }}>tune</span>
           </button>
         </div>
       </header>
 
-      <main className="px-6 space-y-8">
+      <main className="px-6 space-y-5">
         {/* 分类筛选 */}
-        <section className="overflow-x-auto scrollbar-hide -mx-6 px-6 py-2">
+        <section className="overflow-x-auto scrollbar-hide -mx-6 px-6 py-1">
           <div className="flex space-x-3 w-max">
             {CATEGORIES.map((cat) => (
               <button
@@ -310,49 +373,41 @@ const Home: React.FC = () => {
           </div>
         </section>
 
-        {/* 失踪宠物广播入口 */}
-        <section>
+        {/* 快捷入口：横向小卡片 */}
+        <section className="grid grid-cols-2 gap-3">
+          {/* 失踪宠物 */}
           <button
             onClick={() => navigate('/lost-alerts')}
-            className="w-full flex items-center gap-4 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-100 dark:border-orange-800/40 rounded-2xl px-5 py-4 active:scale-[0.98] transition-all shadow-sm"
+            className="flex items-center gap-3 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/50 dark:to-amber-900/40 border border-orange-100 dark:border-orange-700/60 rounded-2xl px-4 py-3.5 active:scale-[0.97] transition-all shadow-sm"
           >
-            <div className="flex-shrink-0 w-10 h-10 bg-orange-100 dark:bg-orange-900/40 rounded-xl flex items-center justify-center">
-              <span className="text-xl">🔍</span>
+            <div className="w-9 h-9 bg-orange-100 dark:bg-orange-800/60 rounded-xl flex items-center justify-center shrink-0">
+              <span className="text-lg">🔍</span>
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-bold text-orange-900 dark:text-orange-300">失踪宠物应急广播</p>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">查看附近走失宠物，提交目击线索</p>
+            <div className="text-left">
+              <p className="text-xs font-bold text-orange-900 dark:text-orange-200 leading-snug">失踪宠物</p>
+              <p className="text-xs font-bold text-orange-900 dark:text-orange-200 leading-snug">应急广播</p>
             </div>
-            <span className="material-icons-round text-orange-400 dark:text-orange-500">chevron_right</span>
           </button>
-        </section>
 
-        {/* 救助协作任务板入口 */}
-        <section>
+          {/* 救助任务板 */}
           <button
             onClick={() => {
-              if (!user) {
-                navigate('/login');
-                return;
-              }
+              if (!user) { navigate('/login'); return; }
               localStorage.setItem(RESCUE_LAST_SEEN_KEY, new Date().toISOString());
               setHasNewRescueTask(false);
               navigate('/rescue-board');
             }}
-            className="w-full flex items-center gap-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-100 dark:border-blue-800/40 rounded-2xl px-5 py-4 active:scale-[0.98] transition-all shadow-sm"
+            className="flex items-center gap-3 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/50 dark:to-cyan-900/40 border border-blue-100 dark:border-blue-700/60 rounded-2xl px-4 py-3.5 active:scale-[0.97] transition-all shadow-sm"
           >
-            <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
-              <span className="material-icons-round text-blue-600 dark:text-blue-300">volunteer_activism</span>
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-bold text-blue-900 dark:text-blue-300">救助协作任务板</p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">发布救助任务，志愿者接单协作完成</p>
-            </div>
-            <div className="relative">
-              <span className="material-icons-round text-blue-400 dark:text-blue-500">chevron_right</span>
+            <div className="relative w-9 h-9 bg-blue-100 dark:bg-blue-800/60 rounded-xl flex items-center justify-center shrink-0">
+              <span className="material-icons-round text-blue-600 dark:text-blue-200 text-xl">volunteer_activism</span>
               {hasNewRescueTask && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border border-white dark:border-zinc-900" />
               )}
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-blue-900 dark:text-blue-200 leading-snug">救助协作</p>
+              <p className="text-xs font-bold text-blue-900 dark:text-blue-200 leading-snug">任务板</p>
             </div>
           </button>
         </section>
@@ -458,34 +513,80 @@ const Home: React.FC = () => {
           )}
         </section>
 
-        {/* 新到伙伴网格 */}
+        {/* 新到伙伴 */}
         <section ref={newArrivalsRef}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">新到伙伴</h2>
-            {(appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
-              <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
-                已筛选
-              </span>
-            )}
-          </div>
-          {loading ? (
-            <div className="columns-2 gap-4 space-y-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="break-inside-avoid bg-gray-100 dark:bg-zinc-800 rounded-2xl h-52 animate-pulse" />
-              ))}
+            <div className="flex items-center gap-2">
+              {(appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
+                <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
+                  已筛选
+                </span>
+              )}
+              {/* 视图切换按钮 */}
+              <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 gap-0.5">
+                {([
+                  { id: 'grid' as ViewMode, icon: 'view_module' },
+                  { id: 'list' as ViewMode, icon: 'view_stream' },
+                  { id: 'large' as ViewMode, icon: 'view_carousel' },
+                ]).map(({ id, icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => handleViewMode(id)}
+                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-all active:scale-[0.90] ${
+                      viewMode === id ? 'bg-white dark:bg-zinc-800 shadow-sm' : ''
+                    }`}
+                    aria-label={id}
+                  >
+                    <span className={`material-icons-round text-base ${
+                      viewMode === id ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'
+                    }`}>{icon}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+          </div>
+
+          {loading ? (
+            /* 骨架屏 */
+            viewMode === 'grid' ? (
+              <div className="columns-2 gap-4 space-y-4">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="break-inside-avoid bg-gray-100 dark:bg-zinc-800 rounded-2xl h-52 animate-pulse" />
+                ))}
+              </div>
+            ) : viewMode === 'list' ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex gap-3 bg-white dark:bg-zinc-800 rounded-2xl p-3 shadow-sm border border-gray-50 dark:border-zinc-700 animate-pulse">
+                    <div className="w-20 h-20 rounded-xl bg-gray-100 dark:bg-zinc-700 shrink-0" />
+                    <div className="flex-1 space-y-2 py-1">
+                      <div className="h-4 bg-gray-100 dark:bg-zinc-700 rounded w-24" />
+                      <div className="h-3 bg-gray-100 dark:bg-zinc-700 rounded w-16" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {[1, 2].map(i => (
+                  <div key={i} className="w-full h-64 rounded-2xl bg-gray-100 dark:bg-zinc-800 animate-pulse" />
+                ))}
+              </div>
+            )
           ) : pets.length === 0 ? (
             <div className="text-center py-16 text-gray-400 dark:text-zinc-500">
               <span className="material-icons text-5xl mb-2">search_off</span>
               <p className="text-sm">{debouncedKeyword.trim() ? `未找到与「${debouncedKeyword.trim()}」匹配的宠物` : '暂无该分类的宠物'}</p>
             </div>
-          ) : (
-            <div className="columns-2 gap-4 space-y-4">
+          ) : viewMode === 'grid' ? (
+            /* 网格视图 */
+            <div key="grid" className="columns-2 gap-4 space-y-4 fade-in">
               {pets.map((pet) => (
                 <div
                   key={pet.id}
                   onClick={() => navigate(`/pet/${pet.id}`)}
-                  className="break-inside-avoid bg-white dark:bg-zinc-800 rounded-2xl p-2.5 pb-4 shadow-sm hover:shadow-md active:scale-[0.98] transition-all duration-300 group cursor-pointer border border-gray-50 dark:border-zinc-700"
+                  className="break-inside-avoid bg-white dark:bg-zinc-800 rounded-2xl p-2.5 pb-4 shadow-sm card-interactive group cursor-pointer border border-gray-50 dark:border-zinc-700"
                 >
                   <div className="relative rounded-xl overflow-hidden mb-3">
                     <img
@@ -508,6 +609,87 @@ const Home: React.FC = () => {
                         <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">{pet.breed}</p>
                       </div>
                       <span className={`material-icons-round text-lg ${pet.gender === 'female' ? 'text-pink-400' : 'text-blue-400'}`}>
+                        {pet.gender}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : viewMode === 'list' ? (
+            /* 列表视图 */
+            <div key="list" className="space-y-3 fade-in">
+              {pets.map((pet) => (
+                <div
+                  key={pet.id}
+                  onClick={() => navigate(`/pet/${pet.id}`)}
+                  className="flex gap-3 bg-white dark:bg-zinc-800 rounded-2xl p-3 shadow-sm border border-gray-50 dark:border-zinc-700 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0">
+                    <img
+                      src={pet.imageUrl}
+                      alt={pet.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover bg-gray-100 dark:bg-zinc-800"
+                      onError={handleImgError}
+                    />
+                    {pet.isUrgent && (
+                      <span className="absolute top-1 left-1 text-[9px] font-bold bg-primary text-black px-1.5 py-0.5 rounded-full leading-tight">
+                        紧急
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 py-0.5 flex flex-col justify-between min-w-0">
+                    <div>
+                      <div className="flex items-start justify-between gap-1">
+                        <h3 className="font-bold text-base text-text-main dark:text-zinc-100 leading-tight truncate">{pet.name}</h3>
+                        <span className={`material-icons-round text-base shrink-0 ${pet.gender === 'female' ? 'text-pink-400' : 'text-blue-400'}`}>
+                          {pet.gender}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">{pet.breed}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="material-icons-round text-primary" style={{ fontSize: 11 }}>near_me</span>
+                      <span className="text-xs text-gray-400 dark:text-zinc-500">{pet.distance}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* 大图视图 */
+            <div key="large" className="space-y-4 fade-in">
+              {pets.map((pet) => (
+                <div
+                  key={pet.id}
+                  onClick={() => navigate(`/pet/${pet.id}`)}
+                  className="relative w-full h-64 rounded-2xl overflow-hidden shadow-lg cursor-pointer active:scale-[0.98] transition-all"
+                >
+                  <img
+                    src={pet.imageUrl}
+                    alt={pet.name}
+                    loading="lazy"
+                    className="w-full h-full object-cover bg-gray-100 dark:bg-zinc-800"
+                    onError={handleImgError}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                  {pet.isUrgent && (
+                    <span className="absolute top-3 left-3 text-[10px] font-bold bg-primary text-black px-2 py-0.5 rounded-full">
+                      紧急
+                    </span>
+                  )}
+                  <div className="absolute top-3 right-3 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center gap-1">
+                    <span className="material-icons-round text-primary text-[10px]">near_me</span>
+                    <span className="text-[10px] text-white font-semibold">{pet.distance}</span>
+                  </div>
+                  <div className="absolute bottom-4 left-4 right-4 text-white">
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold leading-tight">{pet.name}</h3>
+                        <p className="text-sm text-gray-300 mt-0.5">{pet.breed}</p>
+                      </div>
+                      <span className={`material-icons-round text-xl ${pet.gender === 'female' ? 'text-pink-300' : 'text-blue-300'}`}>
                         {pet.gender}
                       </span>
                     </div>
