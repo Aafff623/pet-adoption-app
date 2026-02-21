@@ -1,0 +1,27 @@
+{
+  "rulesets": {
+    "default": [
+      ".ai/rules/00-global.md",
+      ".ai/rules/40-security.md"
+    ],
+    "web_fullstack": [
+      ".ai/rules/00-global.md",
+      ".ai/rules/10-frontend.md",
+      ".ai/rules/20-backend.md",
+      ".ai/rules/30-db-supabase.md",
+      ".ai/rules/40-security.md"
+    ]
+  },
+  "targets": {
+    "cursor": {
+      "rulesDir": ".cursor/rules",
+      "outputFile": "PROJECT_RULES.md",
+      "ruleset": "web_fullstack"
+    },
+    "copilot": {
+      "outputFile": ".github/copilot-instructions.md",
+      "ruleset": "web_fullstack",
+      "enabledByDefault": false
+    }
+  }
+}

@@ -6,7 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:ai": "node scripts/run-workflow.mjs sync",
+    "sync:skills": "node scripts/sync-skills.mjs",
+    "bootstrap:ai": "node scripts/run-workflow.mjs bootstrap",
+    "doctor:ai": "node scripts/run-workflow.mjs doctor",
+    "task:new": "node scripts/create-task-from-phase.mjs",
+    "task:decompose": "node scripts/decompose-task.mjs",
+    "task:list": "node scripts/list-tasks.mjs",
+    "task:mark-done": "node scripts/mark-task-done.mjs",
+    "task:commit-batch": "node scripts/commit-batch.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
