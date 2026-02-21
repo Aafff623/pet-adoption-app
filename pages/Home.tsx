@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
+import { ColorSchemeOnboarding } from '../components/ColorSchemeOnboarding';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useToast } from '../contexts/ToastContext';
@@ -44,7 +45,9 @@ const RESCUE_LAST_SEEN_KEY = 'petconnect_rescue_last_seen';
 const Home: React.FC = () => {
   const { showToast } = useToast();
   const { user } = useAuth();
-  const { resolvedTheme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme, hasColorSchemeSet } = useTheme();
+  const [showColorSchemeOnboarding, setShowColorSchemeOnboarding] = useState(false);
+  const colorSchemeOnboardingShown = useRef(false);
   const [activeCategory, setActiveCategory] = useState<CategoryId>('all');
   const [pets, setPets] = useState<Pet[]>([]);
   const [recommendedPets, setRecommendedPets] = useState<Pet[]>([]);
@@ -83,6 +86,17 @@ const Home: React.FC = () => {
       autoPlayRef.current = null;
     }
   };
+
+  // 首次登录显示配色选择漫游
+  useEffect(() => {
+    if (user && !colorSchemeOnboardingShown.current && !hasColorSchemeSet) {
+      const timer = setTimeout(() => {
+        setShowColorSchemeOnboarding(true);
+        colorSchemeOnboardingShown.current = true;
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [user, hasColorSchemeSet]);
 
   const startAutoPlay = useCallback((total: number) => {
     stopAutoPlay();
@@ -264,6 +278,7 @@ const Home: React.FC = () => {
   const currentPet = recommendedPets[carouselIndex] ?? null;
 
   return (
+    <>
     <div className="pb-24 fade-in">
       <header className={`px-6 sticky top-0 z-40 bg-background-light/95 dark:bg-zinc-900/95 backdrop-blur-sm ${
         isHeaderCompact ? 'pt-2 pb-1.5' : 'pt-8 pb-3'
@@ -793,6 +808,11 @@ const Home: React.FC = () => {
         </div>
       )}
     </div>
+    <ColorSchemeOnboarding
+      isOpen={showColorSchemeOnboarding}
+      onClose={() => setShowColorSchemeOnboarding(false)}
+    />
+  </>
   );
 };
 

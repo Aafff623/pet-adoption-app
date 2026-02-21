@@ -466,7 +466,7 @@ npm run sync:ai
 | 文档 | 用途 |
 | --- | --- |
 | [docs/AI-TASK-SYSTEM.md](docs/AI-TASK-SYSTEM.md) | 🤖 **LLM 智能拆解系统**（推荐首先阅读！） |
-| [docs/BOILERPLATE.md](docs/BOILERPLATE.md) | 📦 **新项目初始化模版**（为下一个项目做准备） |
+| [boilerplate/docs/BOILERPLATE.md](boilerplate/docs/BOILERPLATE.md) | 📦 **新项目初始化模版**（为下一个项目做准备） |
 | [docs/WORKFLOW.md](docs/WORKFLOW.md) | 完整工作流程与 Agent 执行指南（深度） |
 | [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) | 快速参考卡（可打印） |
 | [.ai/rules/](/.ai/rules/) | 5 个分层规则（global / frontend / backend / db / security） |

@@ -2,6 +2,22 @@
    PetConnect 全局样式
    ============================================ */
 
+/* ---- 配色方案 CSS 变量（默认：草绿色）----
+   ThemeContext 会在运行时通过 applyCSSVariables() 动态更新这些变量，
+   实现无缝的配色方案切换。初始值对应 green/light 配色。
+   -------------------------------------------- */
+:root {
+  --color-primary: #60e750;
+  --color-primary-dark: #4ad325;
+  --color-background-light: #f6f8f6;
+  --color-surface-white: #ffffff;
+  --color-text-main: #1f2937;
+  --color-text-sub: #6b7280;
+  --color-bg-dark: #18181b;
+  --color-surface-dark: #27272a;
+  --color-border-dark: #3f3f46;
+}
+
 /* ---- 主题切换丝滑过渡 ----
    仅在 JS 主动切换主题时挂载此类，避免影响页面加载和其他动画。
    使用 requestAnimationFrame 确保浏览器在同一帧内先应用过渡规则，

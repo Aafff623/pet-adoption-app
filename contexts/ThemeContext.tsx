@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { ThemeMode, ColorScheme, ThemeState } from '../types';
+import { applyCSSVariables } from '../lib/utils/cssVariables';
 
 const STORAGE_KEY = 'petconnect_theme';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
-
 interface ThemeContextValue {
-  theme: ThemeMode;
+  mode: ThemeMode;
   resolvedTheme: 'light' | 'dark';
+  colorScheme: ColorScheme;
   setTheme: (mode: ThemeMode) => void;
+  setColorScheme: (scheme: ColorScheme) => void;
+  hasColorSchemeSet: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -17,11 +20,32 @@ function getSystemPrefersDark(): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-function getStoredTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'system';
+function getStoredThemeState(): ThemeState {
+  if (typeof window === 'undefined') return { mode: 'system', colorScheme: 'green' };
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
-  return 'system';
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed.mode && parsed.colorScheme) return parsed;
+    } catch {
+      if (stored === 'light' || stored === 'dark' || stored === 'system') {
+        return { mode: stored, colorScheme: 'green' };
+      }
+    }
+  }
+  return { mode: 'system', colorScheme: 'green' };
+}
+
+function hasConfiguredColorScheme(): boolean {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return false;
+  try {
+    const parsed = JSON.parse(stored);
+    return !!(parsed.colorScheme && parsed.colorScheme !== 'green');
+  } catch {
+    return false;
+  }
 }
 
 function resolveTheme(mode: ThemeMode, prefersDark: boolean): 'light' | 'dark' {
@@ -31,13 +55,14 @@ function resolveTheme(mode: ThemeMode, prefersDark: boolean): 'light' | 'dark' {
 }
 
 /**
- * 应用主题，支持丝滑过渡。
+ * 应用主题，支持丝滑过渡（包括颜色方案切换）
  * 核心原理：先在第 1 帧挂载 .theme-transitioning（注册 CSS transition），
  * 再在第 2 帧切换 dark 类，浏览器感知到样式变化后触发平滑过渡。
  * 初次渲染时 enableTransition = false，跳过动画避免首屏闪烁。
  */
-function applyTheme(resolved: 'light' | 'dark', enableTransition: boolean) {
+function applyTheme(resolved: 'light' | 'dark', scheme: ColorScheme, enableTransition: boolean) {
   const root = document.documentElement;
+  applyCSSVariables(scheme, resolved === 'dark');
 
   if (!enableTransition) {
     root.classList.toggle('dark', resolved === 'dark');
@@ -61,16 +86,17 @@ function applyTheme(resolved: 'light' | 'dark', enableTransition: boolean) {
 }
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<ThemeMode>(getStoredTheme);
+  const [themeState, setThemeStateInternal] = useState<ThemeState>(getStoredThemeState);
   const [prefersDark, setPrefersDark] = useState(getSystemPrefersDark);
-  const resolvedTheme = resolveTheme(theme, prefersDark);
+  const resolvedTheme = resolveTheme(themeState.mode, prefersDark);
+  const [hasColorSchemeSetFlag, setHasColorSchemeSetFlag] = useState(hasConfiguredColorScheme);
   // 首次渲染标记：初始化时不触发过渡动画（防止首屏闪烁）
   const isFirstRender = useRef(true);
 
   useEffect(() => {
-    applyTheme(resolvedTheme, !isFirstRender.current);
+    applyTheme(resolvedTheme, themeState.colorScheme, !isFirstRender.current);
     isFirstRender.current = false;
-  }, [resolvedTheme]);
+  }, [resolvedTheme, themeState.colorScheme]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -80,11 +106,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const setTheme = useCallback((mode: ThemeMode) => {
-    setThemeState(mode);
-    localStorage.setItem(STORAGE_KEY, mode);
-  }, []);
+    const newState = { ...themeState, mode };
+    setThemeStateInternal(newState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+  }, [themeState]);
 
-  const value: ThemeContextValue = { theme, resolvedTheme, setTheme };
+  const setColorScheme = useCallback((scheme: ColorScheme) => {
+    const newState = { ...themeState, colorScheme: scheme };
+    setThemeStateInternal(newState);
+    setHasColorSchemeSetFlag(true);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+  }, [themeState]);
+
+  const value: ThemeContextValue = {
+    mode: themeState.mode,
+    resolvedTheme,
+    colorScheme: themeState.colorScheme,
+    setTheme,
+    setColorScheme,
+    hasColorSchemeSet: hasColorSchemeSetFlag,
+  };
 
   return (
     <ThemeContext.Provider value={value}>

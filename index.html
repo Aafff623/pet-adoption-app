@@ -5,9 +5,32 @@
       (function() {
         const key = 'petconnect_theme';
         const stored = localStorage.getItem(key);
+        let mode = 'system', colorScheme = 'green';
+        if (stored) {
+          try {
+            const p = JSON.parse(stored);
+            if (p.mode) mode = p.mode;
+            if (p.colorScheme) colorScheme = p.colorScheme;
+          } catch {
+            if (stored === 'dark' || stored === 'light' || stored === 'system') mode = stored;
+          }
+        }
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const resolved = stored === 'dark' ? 'dark' : stored === 'light' ? 'light' : (prefersDark ? 'dark' : 'light');
-        document.documentElement.classList.toggle('dark', resolved === 'dark');
+        const isDark = mode === 'dark' ? true : mode === 'light' ? false : prefersDark;
+        document.documentElement.classList.toggle('dark', isDark);
+
+        // 预设配色方案映射表（避免字串闪烁）
+        const palettes = {
+          green:  { l: '#60e750', d: '#60e750' },
+          blue:   { l: '#3b82f6', d: '#60a5fa' },
+          purple: { l: '#a855f7', d: '#d8b4fe' },
+          pink:   { l: '#ec4899', d: '#f472b6' },
+          orange: { l: '#f97316', d: '#fb923c' },
+          cyan:   { l: '#06b6d4', d: '#22d3ee' },
+        };
+        const pal = palettes[colorScheme] || palettes.green;
+        const primary = isDark ? pal.d : pal.l;
+        document.documentElement.style.setProperty('--color-primary', primary);
       })();
     </script>
     <meta charset="utf-8" />
@@ -27,15 +50,15 @@
         theme: {
           extend: {
             colors: {
-              primary: "#60e750",
-              "primary-dark": "#4ad325",
-              "background-light": "#f6f8f6",
-              "surface-white": "#ffffff",
-              "text-main": "#1f2937",
-              "text-sub": "#6b7280",
-              "bg-dark": "#18181b",
-              "surface-dark": "#27272a",
-              "border-dark": "#3f3f46",
+              primary: "var(--color-primary)",
+              "primary-dark": "var(--color-primary-dark)",
+              "background-light": "var(--color-background-light)",
+              "surface-white": "var(--color-surface-white)",
+              "text-main": "var(--color-text-main)",
+              "text-sub": "var(--color-text-sub)",
+              "bg-dark": "var(--color-bg-dark)",
+              "surface-dark": "var(--color-surface-dark)",
+              "border-dark": "var(--color-border-dark)",
             },
             fontFamily: {
               sans: ["Arimo", "Noto Sans SC", "sans-serif"],

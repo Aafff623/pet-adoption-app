@@ -408,3 +408,31 @@ export interface CreateHealthDiaryParams {
   imageUrl?: string;
   recordedAt?: string;
 }
+
+// ============================================================
+// 主题和配色相关类型
+// ============================================================
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type ColorScheme = 'green' | 'blue' | 'purple' | 'pink' | 'orange' | 'cyan';
+
+export interface ColorPalette {
+  primary: string;
+  primaryDark: string;
+  backgroundLight: string;
+  surfaceWhite: string;
+  textMain: string;
+  textSub: string;
+  bgDark: string;
+  surfaceDark: string;
+  borderDark: string;
+}
+
+export interface ColorSchemeConfig {
+  light: ColorPalette;
+  dark: ColorPalette;
+}
+
+export interface ThemeState {
+  mode: ThemeMode;
+  colorScheme: ColorScheme;
+}
