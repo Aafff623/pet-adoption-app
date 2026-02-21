@@ -93,6 +93,21 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      }
+      },
+      build: {
+        chunkSizeWarningLimit: 600,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // React 核心（最稳定，缓存命中率最高）
+              'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+              // Framer Motion（动画库，单独拆分便于未来升级）
+              'vendor-motion': ['framer-motion'],
+              // Supabase（后端 SDK）
+              'vendor-supabase': ['@supabase/supabase-js'],
+            },
+          },
+        },
+      },
     };
 });

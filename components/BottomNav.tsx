@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchTotalUnreadCount } from '../lib/api/messages';
 
@@ -20,124 +21,137 @@ const BottomNav: React.FC = () => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-lg border-t border-gray-200 dark:border-zinc-700 pb-6 pt-2 z-50">
       <div className="flex justify-around items-center max-w-lg mx-auto relative">
-        <button
+        <motion.button
           onClick={() => navigate('/')}
           className="flex flex-col items-center p-2 group w-16"
           aria-label="首页"
           aria-current={isActive('/') ? 'page' : undefined}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         >
           <div className={`w-12 h-8 rounded-xl flex items-center justify-center mb-1 transition-colors ${isActive('/') ? 'bg-primary/20' : 'group-hover:bg-gray-100 dark:group-hover:bg-zinc-700'}`}>
             <span className={`material-icons-round text-2xl ${isActive('/') ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>home</span>
           </div>
           <span className={`text-[10px] font-bold ${isActive('/') ? 'text-primary' : 'text-gray-500 dark:text-zinc-400'}`}>首页</span>
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           onClick={() => navigate('/favorites')}
           className="flex flex-col items-center p-2 group w-16"
           aria-label="收藏"
           aria-current={isActive('/favorites') ? 'page' : undefined}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         >
           <div className={`w-12 h-8 rounded-xl flex items-center justify-center mb-1 transition-colors ${isActive('/favorites') ? 'bg-primary/20' : 'group-hover:bg-gray-100 dark:group-hover:bg-zinc-700'}`}>
             <span className={`material-icons-round text-2xl ${isActive('/favorites') ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>favorite_border</span>
           </div>
           <span className={`text-[10px] font-medium ${isActive('/favorites') ? 'text-primary' : 'text-gray-500 dark:text-zinc-400'}`}>收藏</span>
-        </button>
+        </motion.button>
 
         {/* Center + button */}
         <div className="w-16 flex items-center justify-center">
-          <button
+          <motion.button
             onClick={() => setShowPlusMenu(v => !v)}
             aria-label="发布"
-            className="relative -mt-6 w-14 h-14 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center shadow-lg border border-gray-100 dark:border-zinc-700 transition-transform active:scale-[0.97]"
+            className="relative -mt-6 w-14 h-14 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center shadow-lg border border-gray-100 dark:border-zinc-700 fab-pulse"
+            whileTap={{ scale: 0.88, rotate: 45 }}
+            animate={{ rotate: showPlusMenu ? 45 : 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
           >
             <span className="material-icons-round text-3xl text-pink-500">add</span>
-          </button>
+          </motion.button>
         </div>
 
-        <button
+        <motion.button
           onClick={() => navigate('/messages')}
           className="flex flex-col items-center p-2 group w-16"
           aria-label="消息"
           aria-current={isActive('/messages') ? 'page' : undefined}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         >
           <div className={`w-12 h-8 rounded-xl flex items-center justify-center mb-1 transition-colors relative ${isActive('/messages') ? 'bg-primary/20' : 'group-hover:bg-gray-100 dark:group-hover:bg-zinc-700'}`}>
             <span className={`material-icons-round text-2xl ${isActive('/messages') ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>chat_bubble_outline</span>
-            {hasUnread && (
-              <span className="absolute top-0 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-zinc-900" aria-hidden="true"></span>
-            )}
+            <AnimatePresence>
+              {hasUnread && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute top-0 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-zinc-900"
+                  aria-hidden="true"
+                />
+              )}
+            </AnimatePresence>
           </div>
           <span className={`text-[10px] font-medium ${isActive('/messages') ? 'text-primary' : 'text-gray-500 dark:text-zinc-400'}`}>消息</span>
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
           onClick={() => navigate('/profile')}
           className="flex flex-col items-center p-2 group w-16"
           aria-label="我的"
           aria-current={isActive('/profile') ? 'page' : undefined}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         >
           <div className={`w-12 h-8 rounded-xl flex items-center justify-center mb-1 transition-colors ${isActive('/profile') ? 'bg-primary/20' : 'group-hover:bg-gray-100 dark:group-hover:bg-zinc-700'}`}>
             <span className={`material-icons-round text-2xl ${isActive('/profile') ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>person_outline</span>
           </div>
           <span className={`text-[10px] font-medium ${isActive('/profile') ? 'text-primary' : 'text-gray-500 dark:text-zinc-400'}`}>我的</span>
-        </button>
+        </motion.button>
       </div>
 
-      {/* Plus menu sheet */}
-      {showPlusMenu && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-60 flex items-end justify-center"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowPlusMenu(false); }}
-        >
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full max-w-md p-4 pb-6">
-            <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-zinc-700">
-              <button
-                onClick={() => { setShowPlusMenu(false); navigate('/publish-pet'); }}
-                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
-              >
-                <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-primary/20 flex items-center justify-center text-primary">
-                  <span className="material-icons-round">add_circle_outline</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-zinc-200">发布送养</span>
-                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
-              </button>
-              <button
-                onClick={() => { setShowPlusMenu(false); navigate('/publish-adopt-request'); }}
-                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
-              >
-                <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500">
-                  <span className="material-icons-round">pets</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-zinc-200">发布求领养</span>
-                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
-              </button>
-              <button
-                onClick={() => { setShowPlusMenu(false); navigate('/experts'); }}
-                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
-              >
-                <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500">
-                  <span className="material-icons-round">verified_user</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-zinc-200">宠物达人</span>
-                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
-              </button>
-              <button
-                onClick={() => { setShowPlusMenu(false); navigate('/challenges'); }}
-                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
-              >
-                <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500">
-                  <span className="material-icons-round">emoji_events</span>
-                </div>
-                <span className="font-medium text-gray-800 dark:text-zinc-200">城市挑战赛</span>
-                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Plus menu sheet with AnimatePresence slide-up */}
+      <AnimatePresence>
+        {showPlusMenu && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-60 flex items-end justify-center"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowPlusMenu(false); }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <div className="absolute inset-0 bg-black/40" />
+            <motion.div
+              className="relative w-full max-w-md p-4 pb-6"
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 60, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            >
+              <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-zinc-700">
+                {[
+                  { icon: 'add_circle_outline', label: '发布送养',   route: '/publish-pet',          bg: 'bg-green-50 dark:bg-primary/20',    color: 'text-primary' },
+                  { icon: 'pets',               label: '发布求领养', route: '/publish-adopt-request', bg: 'bg-blue-50 dark:bg-blue-900/20',    color: 'text-blue-500' },
+                  { icon: 'verified_user',       label: '宠物达人',   route: '/experts',              bg: 'bg-emerald-50 dark:bg-emerald-900/20', color: 'text-emerald-500' },
+                  { icon: 'emoji_events',        label: '城市挑战赛', route: '/challenges',            bg: 'bg-amber-50 dark:bg-amber-900/20',  color: 'text-amber-500' },
+                ].map((item, i) => (
+                  <motion.button
+                    key={item.route}
+                    onClick={() => { setShowPlusMenu(false); navigate(item.route); }}
+                    className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.18 }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <div className={`w-10 h-10 rounded-full ${item.bg} flex items-center justify-center ${item.color}`}>
+                      <span className="material-icons-round">{item.icon}</span>
+                    </div>
+                    <span className="font-medium text-gray-800 dark:text-zinc-200">{item.label}</span>
+                    <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };
