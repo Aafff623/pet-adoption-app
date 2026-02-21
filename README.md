@@ -461,6 +461,43 @@ npm run doctor:ai
 npm run sync:ai
 ```
 
+### 如何复制 boilerplate 到新项目
+
+如果你想在新仓库/新项目中使用本套 boilerplate，可按以下简短步骤操作：
+
+- 方法 A（本地复制，推荐）：
+
+```bash
+# 进入目标项目根目录（或新建目录）
+cd /path/to/my-new-project
+# 从当前仓库复制 boilerplate 下的内容到目标项目
+cp -r ../petconnect-app/boilerplate/.ai ./
+cp -r ../petconnect-app/boilerplate/scripts ./
+cp -r ../petconnect-app/boilerplate/docs ./
+cp -r ../petconnect-app/boilerplate/tasks ./
+cp ../petconnect-app/boilerplate/package.json ./ || true
+```
+
+- 方法 B（作为模板仓库使用）：
+
+```bash
+# 克隆 boilerplate 仓库（假设已推到远端独立仓库）
+git clone https://github.com/yourname/boilerplate.git my-new-project
+cd my-new-project
+```
+
+复制后，进入目标项目，安装依赖并运行初始化命令：
+
+```bash
+npm install
+# 填写 .ai/rules/ 中的 TODO 内容，按需调整 package.json
+npm run bootstrap:ai
+npm run task:list
+```
+
+这会把核心规则、脚本与任务模板引入你的新项目，之后即可按常规流程开始开发。
+
+
 ### 工程化文档
 
 | 文档 | 用途 |
