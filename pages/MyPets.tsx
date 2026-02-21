@@ -373,7 +373,7 @@ const MyPets: React.FC = () => {
           myPets.map(pet => (
             <div
               key={pet.id}
-              className="bg-white dark:bg-zinc-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-zinc-700 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform"
+              className="bg-white dark:bg-zinc-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-zinc-700 flex items-start gap-4 cursor-pointer active:scale-[0.98] transition-transform"
               onClick={() => navigate(`/pet/${pet.id}`)}
               role="listitem"
               aria-label={`我的宠物：${pet.name}，品种：${pet.breed}`}
@@ -384,13 +384,13 @@ const MyPets: React.FC = () => {
                 <p className="text-sm text-gray-500 dark:text-zinc-400">{pet.breed}</p>
                 <span className="inline-block mt-1 text-xs bg-green-100 dark:bg-primary/20 text-green-700 dark:text-primary px-2 py-0.5 rounded-full">已领养</span>
               </div>
-              <div className="flex flex-col gap-1.5 shrink-0">
+              <div className="grid grid-cols-2 gap-2 shrink-0">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     void openLogManager(pet);
                   }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300"
+                  className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-zinc-700 text-gray-700 dark:text-zinc-300 text-center"
                   aria-label={`管理 ${pet.name} 的成长日志`}
                 >
                   成长日志
@@ -400,7 +400,7 @@ const MyPets: React.FC = () => {
                     e.stopPropagation();
                     navigate(`/pet-health/${pet.id}`);
                   }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                  className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-center"
                   aria-label={`查看 ${pet.name} 的健康日记`}
                 >
                   健康日记
@@ -410,10 +410,30 @@ const MyPets: React.FC = () => {
                     e.stopPropagation();
                     openFollowUpCreator(pet);
                   }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300"
+                  className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 text-center"
                   aria-label={`为 ${pet.name} 创建回访任务`}
                 >
                   创建回访
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/insurance?tab=my');
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-300 text-center"
+                  aria-label={`查看 ${pet.name} 的保单`}
+                >
+                  查看保单
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/insurance?tab=my');
+                  }}
+                  className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300 text-center col-span-2"
+                  aria-label={`为 ${pet.name} 申请理赔`}
+                >
+                  申请理赔
                 </button>
               </div>
             </div>

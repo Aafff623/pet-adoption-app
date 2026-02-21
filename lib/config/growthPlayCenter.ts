@@ -1,4 +1,4 @@
-export type GrowthPlayCategory = 'rescue' | 'points' | 'community' | 'report';
+export type GrowthPlayCategory = 'rescue' | 'points' | 'community' | 'report' | 'insurance';
 
 export interface GrowthPlayCard {
   key: string;
@@ -56,5 +56,16 @@ export const GROWTH_PLAY_CARDS: GrowthPlayCard[] = [
     startAt: '2026-02-21T00:00:00+08:00',
     endAt: '2026-03-03T23:59:59+08:00',
     badge: '推荐',
+  },
+  {
+    key: 'pet-insurance',
+    title: '宠物健康险',
+    desc: '积分抵扣，秒速理赔',
+    icon: 'health_and_safety',
+    route: '/insurance',
+    category: 'insurance',
+    startAt: '2026-02-21T00:00:00+08:00',
+    endAt: '2026-12-31T23:59:59+08:00',
+    badge: '新功能',
   },
 ];

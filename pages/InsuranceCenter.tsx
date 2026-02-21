@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import BottomNav from '../components/BottomNav';
@@ -13,13 +13,17 @@ import type { InsuranceProduct, InsurancePolicyWithDetails, Pet } from '../types
 
 const InsuranceCenter: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { showToast } = useToast();
   const [products, setProducts] = useState<InsuranceProduct[]>([]);
   const [policies, setPolicies] = useState<InsurancePolicyWithDetails[]>([]);
   const [myPets, setMyPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'recommend' | 'all' | 'my'>('recommend');
+  const tabParam = searchParams.get('tab');
+  const defaultTab: 'recommend' | 'all' | 'my' = 
+    tabParam === 'my' || tabParam === 'all' ? tabParam : 'recommend';
+  const [activeTab, setActiveTab] = useState<'recommend' | 'all' | 'my'>(defaultTab);
 
   useEffect(() => {
     if (!user) return;

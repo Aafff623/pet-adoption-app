@@ -5,12 +5,13 @@ import { useToast } from '../contexts/ToastContext';
 import BottomNav from '../components/BottomNav';
 import {
   fetchPolicyById,
+  fetchProductById,
   fetchClaimsByPolicy,
   submitClaim,
   getHealthDiaryRiskHint,
 } from '../lib/api/insurance';
 import { uploadImage } from '../lib/utils/storage';
-import type { InsurancePolicyWithDetails, InsuranceClaim } from '../types';
+import type { InsurancePolicyWithDetails, InsuranceClaim, InsuranceProduct } from '../types';
 
 const CLAIM_STATUS_MAP: Record<string, string> = {
   pending: '待审核',
@@ -25,6 +26,7 @@ const InsuranceClaim: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [policy, setPolicy] = useState<InsurancePolicyWithDetails | null>(null);
+  const [product, setProduct] = useState<InsuranceProduct | null>(null);
   const [claims, setClaims] = useState<InsuranceClaim[]>([]);
   const [riskHint, setRiskHint] = useState<{ hasRecords: boolean; symptomCount: number } | null>(null);
   const [claimAmount, setClaimAmount] = useState('');
@@ -47,7 +49,11 @@ const InsuranceClaim: React.FC = () => {
         setPolicy(p ?? null);
         setClaims(claimList);
         if (p) {
-          const h = await getHealthDiaryRiskHint(p.petId).catch(() => null);
+          const [prod, h] = await Promise.all([
+            fetchProductById(p.productId).catch(() => null),
+            getHealthDiaryRiskHint(p.petId).catch(() => null),
+          ]);
+          setProduct(prod);
           setRiskHint(h);
         }
       } catch (err) {
@@ -85,8 +91,9 @@ const InsuranceClaim: React.FC = () => {
       showToast('请输入有效理赔金额');
       return;
     }
-    if (amount > policy.premiumYuan * 10) {
-      showToast('理赔金额超出合理范围');
+    const maxClaim = product?.coverageAmount ?? policy.premiumYuan * 10;
+    if (amount > maxClaim) {
+      showToast(`理赔金额不可超过保额 ¥${maxClaim}`);
       return;
     }
     if (!description.trim()) {
@@ -195,10 +202,10 @@ const InsuranceClaim: React.FC = () => {
               <input
                 type="number"
                 min={1}
-                max={policy.premiumYuan * 10}
+                max={product?.coverageAmount ?? policy.premiumYuan * 10}
                 value={claimAmount}
                 onChange={(e) => setClaimAmount(e.target.value)}
-                placeholder="请输入金额"
+                placeholder={`最高可赔 ¥${product?.coverageAmount ?? policy.premiumYuan * 10}`}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100"
               />
             </div>
