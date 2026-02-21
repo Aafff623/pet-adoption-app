@@ -1,7 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
+import { DEFAULT_LOCATION, parseLocationDisplay } from '../lib/data/regions';
 import { addPet } from '../lib/api/pets';
 import { enhancedButtonClick } from '../lib/utils/interactions';
 
@@ -29,7 +31,9 @@ const PublishPet: React.FC = () => {
   const [ageText, setAgeText] = useState('');
   const [gender, setGender] = useState<PetGender>('male');
   const [category, setCategory] = useState<PetCategory>('dog');
-  const [location, setLocation] = useState('');
+  const [locationOption, setLocationOption] = useState<LocationOption>(DEFAULT_LOCATION);
+  const [locationDetail, setLocationDetail] = useState('');
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [weight, setWeight] = useState('');
   const [description, setDescription] = useState('');
   const [story, setStory] = useState('');
@@ -40,6 +44,12 @@ const PublishPet: React.FC = () => {
 
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!profile?.city) return;
+    const parsed = parseLocationDisplay(profile.city);
+    if (parsed) setLocationOption(parsed);
+  }, [profile?.city]);
 
   const handleBack = () => {
     if (window.history.length > 1) navigate(-1);

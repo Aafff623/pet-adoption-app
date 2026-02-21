@@ -331,7 +331,14 @@ const Messages: React.FC = () => {
               )}
 
               <div className="relative shrink-0">
-                {conv.isSystem ? (
+                {conv.isSystem && conv.otherUserAvatar ? (
+                  <img
+                    src={conv.otherUserAvatar}
+                    alt={conv.otherUserName}
+                    className="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-zinc-800 bg-gray-200 dark:bg-zinc-700"
+                    onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='55%25' font-size='18' text-anchor='middle' dominant-baseline='middle'%3E%F0%9F%91%A4%3C/text%3E%3C/svg%3E`; }}
+                  />
+                ) : conv.isSystem ? (
                   <div className="w-14 h-14 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center border-2 border-white dark:border-zinc-800">
                     <span className="material-icons-round text-blue-500 text-2xl">notifications</span>
                   </div>

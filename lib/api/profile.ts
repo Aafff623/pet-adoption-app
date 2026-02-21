@@ -72,6 +72,8 @@ export const fetchProfile = async (userId: string): Promise<UserProfile | null> 
     avatarUrl: data.avatar_url,
     bio: data.bio ?? '',
     city: data.city ?? '',
+    province: data.province ?? '',
+    cityName: data.city_name ?? '',
     followingCount: data.following_count,
     applyingCount: data.applying_count,
     adoptedCount: data.adopted_count,
@@ -82,13 +84,22 @@ export const fetchProfile = async (userId: string): Promise<UserProfile | null> 
 
 export const updateProfile = async (
   userId: string,
-  updates: { nickname?: string; avatarUrl?: string; bio?: string; city?: string }
+  updates: {
+    nickname?: string;
+    avatarUrl?: string;
+    bio?: string;
+    city?: string;
+    province?: string;
+    cityName?: string;
+  }
 ): Promise<void> => {
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.nickname !== undefined) payload.nickname = updates.nickname;
   if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
   if (updates.bio !== undefined) payload.bio = updates.bio;
   if (updates.city !== undefined) payload.city = updates.city;
+  if (updates.province !== undefined) payload.province = updates.province;
+  if (updates.cityName !== undefined) payload.city_name = updates.cityName;
 
   const hasNickname = updates.nickname !== undefined;
   if (hasNickname) {

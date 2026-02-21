@@ -47,6 +47,7 @@ const ChatDetail: React.FC = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const lastAiReplyTimeRef = useRef<number | null>(null);
 
@@ -135,82 +136,130 @@ const ChatDetail: React.FC = () => {
 
     const text = inputMessage.trim();
     const convId = id;
-    const optimisticId = `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const now = new Date().toISOString();
+
+    // 分段逻辑：若消息超过 400 字，分段处理
+    const MAX_MESSAGE_LENGTH = 400;
+    const messages: Array<{ content: string; isLastSegment: boolean }> = [];
+
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      // 需要分段
+      const totalSegments = Math.ceil(text.length / MAX_MESSAGE_LENGTH);
+      for (let i = 0; i < totalSegments; i++) {
+        const start = i * MAX_MESSAGE_LENGTH;
+        const end = Math.min(start + MAX_MESSAGE_LENGTH, text.length);
+        const segmentContent = text.substring(start, end);
+        const segmentLabel = `[分 ${i + 1}/${totalSegments}]\n${segmentContent}`;
+        messages.push({
+          content: segmentLabel,
+          isLastSegment: i === totalSegments - 1,
+        });
+      }
+    } else {
+      // 不需要分段
+      messages.push({ content: text, isLastSegment: true });
+    }
 
     setInputMessage('');
-    setChatMessages(prev => [
-      ...prev,
-      {
-        id: optimisticId,
-        conversationId: convId,
-        content: text,
-        isSelf: true,
-        senderId: user?.id ?? null,
-        createdAt: now,
-        pending: true,
-      },
-    ]);
-    setSending(true);
 
-    try {
-      const sent = await sendChatMessage(id, text, user?.id);
-      setChatMessages(prev => {
-        const withoutOptimistic = prev.filter(m => m.id !== optimisticId);
-        const exists = withoutOptimistic.some(m => m.id === sent.id);
-        if (exists) return withoutOptimistic;
-        return [...withoutOptimistic, sent];
-      });
+    let lastSentMessageId: string | null = null;
 
-      const agentType = conversation?.agentType;
-      const isAIConv = agentType === 'pet_expert' || agentType === 'emotional_counselor';
+    // 逐段发送，间隔 200ms
+    for (let segmentIndex = 0; segmentIndex < messages.length; segmentIndex++) {
+      const segment = messages[segmentIndex];
+      const optimisticId = `optimistic-${Date.now()}-${segmentIndex}-${Math.random().toString(36).slice(2, 10)}`;
+      const now = new Date().toISOString();
 
-      if (isAIConv && agentType) {
-        const delayMs = 80 + Math.random() * 60;
-        setTimeout(async () => {
-          try {
-            const recentUserContents = [
-              ...chatMessages.filter(m => m.isSelf).map(m => m.content),
-              text,
-            ].slice(-3);
-            const guard = shouldAllowAI(text, lastAiReplyTimeRef.current, recentUserContents);
-            if (!guard.allow) {
-              return;
-            }
+      // 添加 optimistic 消息到 UI
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: optimisticId,
+          conversationId: convId,
+          content: segment.content,
+          isSelf: true,
+          senderId: user?.id ?? null,
+          createdAt: now,
+          pending: true,
+        },
+      ]);
 
-            const history = chatMessages.slice(-20).map(m => ({
-              role: m.isSelf ? ('user' as const) : ('model' as const),
-              content: m.content,
-            }));
-            const aiReply = await generateAgentReply(agentType, text, history);
-            if (aiReply === null) {
-              const debug = getLlmDebugInfo();
-              console.warn('[PetConnect AI] 回复失败，便于排查:', debug);
-              return;
-            }
-
-            lastAiReplyTimeRef.current = Date.now();
-            const replyMsg = await insertSystemReply(convId, aiReply);
-            setChatMessages(prev => {
-              const exists = prev.some(m => m.id === replyMsg.id);
-              if (exists) return prev;
-              return [...prev, replyMsg];
-            });
-            markConversationRead(convId);
-          } catch {
-            // 自动回复失败静默处理，不影响用户
-          }
-        }, delayMs);
+      if (segmentIndex === 0) {
+        setSending(true);
       }
-    } catch {
-      setChatMessages(prev =>
-        prev.map(m => (m.id === optimisticId ? { ...m, pending: false, failed: true } : m))
-      );
-      setInputMessage(prev => (prev ? prev : text));
-      showToast('消息发送失败，请重试');
-    } finally {
-      setSending(false);
+
+      try {
+        const sent = await sendChatMessage(convId, segment.content, user?.id);
+        lastSentMessageId = sent.id;
+
+        setChatMessages(prev => {
+          const withoutOptimistic = prev.filter(m => m.id !== optimisticId);
+          const exists = withoutOptimistic.some(m => m.id === sent.id);
+          if (exists) return withoutOptimistic;
+          return [...withoutOptimistic, sent];
+        });
+
+        // 只在最后一段后触发 AI 回复
+        if (segment.isLastSegment) {
+          const agentType = conversation?.agentType;
+          const isAIConv = agentType === 'pet_expert' || agentType === 'emotional_counselor';
+
+          if (isAIConv && agentType) {
+            const delayMs = 80 + Math.random() * 60;
+            setTimeout(async () => {
+              try {
+                // 构造 guard check 时使用的是整个原始消息，不包括分段标记
+                const recentUserContents = [
+                  ...chatMessages.filter(m => m.isSelf).map(m => m.content),
+                  text, // 使用原始未分段的文本进行 guard check
+                ].slice(-3);
+                const guard = shouldAllowAI(text, lastAiReplyTimeRef.current, recentUserContents);
+                if (!guard.allow) {
+                  return;
+                }
+
+                const history = chatMessages.slice(-20).map(m => ({
+                  role: m.isSelf ? ('user' as const) : ('model' as const),
+                  content: m.content,
+                }));
+                const aiReply = await generateAgentReply(agentType, text, history);
+                if (aiReply === null) {
+                  const debug = getLlmDebugInfo();
+                  console.warn('[PetConnect AI] 回复失败，便于排查:', debug);
+                  return;
+                }
+
+                lastAiReplyTimeRef.current = Date.now();
+                const replyMsg = await insertSystemReply(convId, aiReply);
+                setChatMessages(prev => {
+                  const exists = prev.some(m => m.id === replyMsg.id);
+                  if (exists) return prev;
+                  return [...prev, replyMsg];
+                });
+                markConversationRead(convId);
+              } catch {
+                // 自动回复失败静默处理，不影响用户
+              }
+            }, delayMs);
+          }
+        }
+      } catch (error) {
+        // 分段消息发送失败处理
+        setChatMessages(prev =>
+          prev.map(m => (m.id === optimisticId ? { ...m, pending: false, failed: true } : m))
+        );
+        // 恢复输入框为当前分段内容
+        setInputMessage(segment.content);
+        showToast(`分段 ${segmentIndex + 1} 发送失败，请重试`);
+        return; // 停止后续分段发送
+      }
+
+      // 间隔 200ms 发送下一段（除了最后一段）
+      if (segmentIndex < messages.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     }
+
+    setSending(false);
   };
 
   if (loading) {
@@ -315,7 +364,7 @@ const ChatDetail: React.FC = () => {
       </main>
 
       <footer className="bg-white dark:bg-zinc-800 px-4 py-3 border-t border-gray-100 dark:border-zinc-700 sticky bottom-0 z-50">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+        <form ref={formRef} onSubmit={handleSendMessage} className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowAttachPanel(prev => !prev)}
@@ -324,12 +373,18 @@ const ChatDetail: React.FC = () => {
           >
             <span className="material-icons-round text-2xl">{showAttachPanel ? 'cancel' : 'add_circle_outline'}</span>
           </button>
-          <input
-            type="text"
-            placeholder="发送消息..."
-            className="flex-1 bg-gray-50 dark:bg-zinc-700 border-none rounded-full px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500"
+          <textarea
+            placeholder="发送消息...（支持多行，按 Ctrl/Cmd+Enter 发送）"
+            className="flex-1 bg-gray-50 dark:bg-zinc-700 border-none rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 resize-none h-12"
             value={inputMessage}
             onChange={e => setInputMessage(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                // 使用 form 的 submit，复用 handleSendMessage
+                formRef.current?.requestSubmit();
+              }
+            }}
             aria-label="消息输入框"
           />
           <button

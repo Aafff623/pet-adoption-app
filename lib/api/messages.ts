@@ -43,7 +43,43 @@ export const fetchConversations = async (userId: string): Promise<Conversation[]
     .order('last_message_time', { ascending: false });
 
   if (error || !data) return [];
-  return data.map(row => mapRowToConversation(row as Record<string, unknown>));
+  const rows = data.map(row => mapRowToConversation(row as Record<string, unknown>));
+
+  // 对系统会话做去重：若存在多个同名/同类型的系统会话（如历史遗留），合并为一条用于列表展示。
+  // 分组 key：对于系统会话优先使用 agentType（AI 智能体），否则使用 otherUserName；非系统会话保持原始 id。
+  const grouped = new Map<string, Conversation>();
+  for (const conv of rows) {
+    const key = conv.isSystem ? (conv.agentType ?? conv.otherUserName) : conv.id;
+    if (!grouped.has(key)) {
+      grouped.set(key, { ...conv });
+    } else {
+      // 已存在：保留更靠前（最近）的会话信息，但合并未读数，确保最新消息时间与内容为最新值
+      const exist = grouped.get(key)!;
+      // 累加未读数
+      exist.unreadCount = (exist.unreadCount ?? 0) + (conv.unreadCount ?? 0);
+      // 若当前 conv 的 lastMessageTime 更晚，则使用当前 conv 的内容
+      if (conv.lastMessageTime > exist.lastMessageTime) {
+        exist.lastMessage = conv.lastMessage;
+        exist.lastMessageTime = conv.lastMessageTime;
+      }
+      // keep other fields (avatar/name) from the existing first-seen entry
+      grouped.set(key, exist);
+    }
+  }
+
+  const result = Array.from(grouped.values());
+  
+  // 对系统会话，若有 agentType，自动从配置中获取头像
+  result.forEach(conv => {
+    if (conv.isSystem && conv.agentType) {
+      const agentConfig = AI_AGENTS[conv.agentType];
+      if (agentConfig) {
+        conv.otherUserAvatar = agentConfig.avatar;
+      }
+    }
+  });
+
+  return result;
 };
 
 export const fetchChatMessages = async (conversationId: string, currentUserId?: string): Promise<ChatMessage[]> => {

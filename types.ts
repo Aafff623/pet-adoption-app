@@ -11,6 +11,9 @@ export interface Pet {
   imageUrl: string;
   price?: number;
   location?: string;
+  province?: string;
+  cityName?: string;
+  locationDetail?: string;
   weight?: string;
   description?: string;
   tags?: string[];
@@ -29,6 +32,12 @@ export interface Pet {
   category?: 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
   status?: 'available' | 'adopted' | 'pending' | 'pending_review';
   userId?: string | null;
+}
+
+export interface LocationStructured {
+  province?: string;
+  cityName?: string;
+  locationDetail?: string;
 }
 
 // ============================================================
@@ -62,6 +71,8 @@ export interface UserProfile {
   avatarUrl: string;
   bio?: string;
   city?: string;
+  province?: string;
+  cityName?: string;
   followingCount: number;
   applyingCount: number;
   adoptedCount: number;
@@ -257,6 +268,9 @@ export interface LostPetAlert {
   lostAt: string;
   lastSeenAt?: string | null;
   locationText?: string | null;
+  province?: string | null;
+  cityName?: string | null;
+  locationDetail?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   radiusKm: number;
@@ -294,6 +308,9 @@ export interface CreateLostAlertParams {
   lostAt: string;
   lastSeenAt?: string;
   locationText?: string;
+  province?: string;
+  cityName?: string;
+  locationDetail?: string;
   latitude?: number;
   longitude?: number;
   radiusKm: number;

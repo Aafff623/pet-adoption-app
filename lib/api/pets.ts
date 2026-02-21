@@ -13,6 +13,9 @@ const mapRowToPet = (row: Record<string, unknown>): Pet => ({
   imageUrl: row.image_url as string,
   price: row.price as number,
   location: row.location as string,
+  province: (row.province as string | null) ?? '',
+  cityName: (row.city_name as string | null) ?? '',
+  locationDetail: (row.location_detail as string | null) ?? '',
   weight: row.weight as string,
   description: row.description as string,
   tags: (row.tags as string[]) ?? [],
@@ -64,7 +67,8 @@ export const fetchPetList = async (
     query = query.or(`name.ilike.${kw},breed.ilike.${kw},description.ilike.${kw}`);
   }
   if (params.location && params.location.trim()) {
-    query = query.ilike('location', `%${params.location.trim()}%`);
+    const kw = `%${params.location.trim()}%`;
+    query = query.or(`location.ilike.${kw},province.ilike.${kw},city_name.ilike.${kw}`);
   }
 
   const { data, error } = await query;
@@ -144,6 +148,9 @@ export interface AddPetParams {
   gender: 'male' | 'female';
   category: PetCategory;
   location: string;
+  province?: string;
+  cityName?: string;
+  locationDetail?: string;
   weight: string;
   description: string;
   story: string;
@@ -167,6 +174,9 @@ export const addPet = async (params: AddPetParams, userId: string): Promise<Pet>
       gender: params.gender,
       category: params.category,
       location: params.location,
+      province: params.province ?? '',
+      city_name: params.cityName ?? '',
+      location_detail: params.locationDetail ?? '',
       distance: '未知',
       weight: params.weight,
       description: params.description,

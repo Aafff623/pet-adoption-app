@@ -62,3 +62,5 @@
 ```
 
 `ANTI_ABUSE_RULES` 会附加到每个智能体的 systemPrompt 末尾。
+
+// NOTE: AiAgentConfig now includes `avatar: string` (data:image/svg+xml format) for agent avatars used in messages and chat UI.
