@@ -62,13 +62,17 @@ const PublishPet: React.FC = () => {
     if (!name.trim()) { showToast('请填写宠物名称'); return; }
     if (!breed.trim()) { showToast('请填写品种'); return; }
     if (!ageText.trim()) { showToast('请填写年龄'); return; }
-    if (!location.trim()) { showToast('请填写所在城市'); return; }
+    if (!locationOption?.city || !locationOption.city.trim()) { showToast('请填写所在城市'); return; }
     if (!description.trim()) { showToast('请填写宠物描述'); return; }
 
     const tags = tagsInput
       .split(/[，,\s]+/)
       .map(t => t.trim())
       .filter(Boolean);
+
+    const locationDisplay = formatLocationDisplay(locationOption);
+    const trimmedLocationDetail = locationDetail.trim();
+    const fullLocation = trimmedLocationDetail ? `${locationDisplay} ${trimmedLocationDetail}` : locationDisplay;
 
     setSubmitting(true);
     try {
@@ -79,7 +83,10 @@ const PublishPet: React.FC = () => {
           ageText: ageText.trim(),
           gender,
           category,
-          location: location.trim(),
+          location: fullLocation,
+          province: locationOption.province,
+          cityName: locationOption.city,
+          locationDetail: locationDetail.trim() || undefined,
           weight: weight.trim() || '未知',
           description: description.trim(),
           story: story.trim(),
