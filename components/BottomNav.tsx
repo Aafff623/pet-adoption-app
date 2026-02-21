@@ -114,6 +114,26 @@ const BottomNav: React.FC = () => {
                 <span className="font-medium text-gray-800 dark:text-zinc-200">发布求领养</span>
                 <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
               </button>
+              <button
+                onClick={() => { setShowPlusMenu(false); navigate('/experts'); }}
+                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500">
+                  <span className="material-icons-round">verified_user</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200">宠物达人</span>
+                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+              </button>
+              <button
+                onClick={() => { setShowPlusMenu(false); navigate('/challenges'); }}
+                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              >
+                <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500">
+                  <span className="material-icons-round">emoji_events</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200">城市挑战赛</span>
+                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+              </button>
             </div>
           </div>
         </div>

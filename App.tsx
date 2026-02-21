@@ -45,6 +45,23 @@ import RedeemLuckyDraw from './pages/RedeemLuckyDraw';
 import RedeemHospitalCheckup from './pages/RedeemHospitalCheckup';
 import RedeemCommunityPass from './pages/RedeemCommunityPass';
 import RedeemMerchPack from './pages/RedeemMerchPack';
+import ChallengeBoard from './pages/ChallengeBoard';
+import ChallengeDetail from './pages/ChallengeDetail';
+import ChallengeTeam from './pages/ChallengeTeam';
+import AchievementBadges from './pages/AchievementBadges';
+import HealthAdvisorChat from './pages/HealthAdvisorChat';
+import HealthAlerts from './pages/HealthAlerts';
+import StoreList from './pages/StoreList';
+import StoreDetail from './pages/StoreDetail';
+import StoreBooking from './pages/StoreBooking';
+import StoreMyBookings from './pages/StoreMyBookings';
+import StoreStaffApp from './pages/StoreStaffApp';
+import InsuranceCenter from './pages/InsuranceCenter';
+import InsuranceProductDetail from './pages/InsuranceProductDetail';
+import InsuranceClaim from './pages/InsuranceClaim';
+import ExpertList from './pages/ExpertList';
+import ExpertProfile from './pages/ExpertProfile';
+import ExpertColumn from './pages/ExpertColumn';
 
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
   const { user, loading } = useAuth();
@@ -98,6 +115,8 @@ const AppRoutes: React.FC = () => {
       <Route path="/rescue-board" element={<ProtectedRoute element={<RescueBoard />} />} />
       <Route path="/rescue-board/:id" element={<ProtectedRoute element={<RescueTaskDetail />} />} />
       <Route path="/pet-health/:petId" element={<ProtectedRoute element={<PetHealthDiary />} />} />
+      <Route path="/health-advisor" element={<ProtectedRoute element={<HealthAdvisorChat />} />} />
+      <Route path="/health-alerts" element={<ProtectedRoute element={<HealthAlerts />} />} />
       <Route path="/points" element={<ProtectedRoute element={<Points />} />} />
       <Route path="/points/tasks" element={<ProtectedRoute element={<PointsTasks />} />} />
       <Route path="/points/rank" element={<ProtectedRoute element={<PointsRank />} />} />
@@ -108,6 +127,21 @@ const AppRoutes: React.FC = () => {
       <Route path="/points/hospital-checkup" element={<ProtectedRoute element={<RedeemHospitalCheckup />} />} />
       <Route path="/points/community-pass" element={<ProtectedRoute element={<RedeemCommunityPass />} />} />
       <Route path="/points/merch-pack" element={<ProtectedRoute element={<RedeemMerchPack />} />} />
+      <Route path="/insurance" element={<ProtectedRoute element={<InsuranceCenter />} />} />
+      <Route path="/insurance/product/:id" element={<ProtectedRoute element={<InsuranceProductDetail />} />} />
+      <Route path="/insurance/claim/:id" element={<ProtectedRoute element={<InsuranceClaim />} />} />
+      <Route path="/challenges" element={<ChallengeBoard />} />
+      <Route path="/challenges/:id" element={<ChallengeDetail />} />
+      <Route path="/challenges/:challengeId/team/:teamId" element={<ChallengeTeam />} />
+      <Route path="/achievement-badges" element={<ProtectedRoute element={<AchievementBadges />} />} />
+      <Route path="/experts" element={<ExpertList />} />
+      <Route path="/experts/:id" element={<ExpertProfile />} />
+      <Route path="/experts/:id/column" element={<ExpertColumn />} />
+      <Route path="/stores" element={<StoreList />} />
+      <Route path="/stores/my-bookings" element={<ProtectedRoute element={<StoreMyBookings />} />} />
+      <Route path="/stores/staff" element={<ProtectedRoute element={<StoreStaffApp />} />} />
+      <Route path="/stores/:id" element={<StoreDetail />} />
+      <Route path="/stores/:id/booking" element={<ProtectedRoute element={<StoreBooking />} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

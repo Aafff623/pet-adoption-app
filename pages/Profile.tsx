@@ -350,13 +350,37 @@ const Profile: React.FC = () => {
             </button>
             <button
               onClick={() => navigate('/verification')}
-              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group"
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group border-b border-gray-50 dark:border-zinc-700"
             >
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-all duration-300">
                   <span className="material-icons-round">verified_user</span>
                 </div>
                 <span className="font-medium text-gray-800 dark:text-zinc-200 text-base">实名认证</span>
+              </div>
+              <span className="material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+            </button>
+            <button
+              onClick={() => navigate('/challenges')}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group border-b border-gray-50 dark:border-zinc-700"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                  <span className="material-icons-round">emoji_events</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200 text-base">城市挑战赛</span>
+              </div>
+              <span className="material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+            </button>
+            <button
+              onClick={() => navigate('/achievement-badges')}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-zinc-700 active:bg-gray-100 dark:active:bg-zinc-600 transition-colors group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
+                  <span className="material-icons-round">workspace_premium</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200 text-base">成就徽章</span>
               </div>
               <span className="material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
             </button>

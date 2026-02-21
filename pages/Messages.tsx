@@ -204,7 +204,7 @@ const Messages: React.FC = () => {
     if (selectedIds.size === 0) return;
     setDeleting(true);
     try {
-      await Promise.all(Array.from(selectedIds).map(id => deleteConversation(id)));
+      await Promise.all(Array.from(selectedIds).map((id: string) => deleteConversation(id)));
       setConversations(prev => prev.filter(c => !selectedIds.has(c.id)));
       setSelectedIds(new Set());
       setEditMode(false);
@@ -218,7 +218,7 @@ const Messages: React.FC = () => {
   const handleMarkSelectedRead = async () => {
     if (selectedIds.size === 0) return;
     try {
-      await Promise.all(Array.from(selectedIds).map((convId) => markConversationRead(convId)));
+      await Promise.all(Array.from(selectedIds).map((convId: string) => markConversationRead(convId)));
       setConversations((prev) => prev.map((conv) => (selectedIds.has(conv.id) ? { ...conv, unreadCount: 0 } : conv)));
       showToast(`已标记 ${selectedIds.size} 个会话为已读`);
       setSelectedIds(new Set());

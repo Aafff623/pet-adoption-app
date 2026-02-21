@@ -63,7 +63,7 @@ const Favorites: React.FC = () => {
     return acc;
   }, {});
   const speciesTopList = Object.entries(speciesTop)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
     .slice(0, 3);
 
   const handleRemoveFavorite = async (petId: string, event: React.MouseEvent) => {

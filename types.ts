@@ -145,7 +145,8 @@ export type AgentType =
   | 'medical_assistant'
   | 'nutrition_coach'
   | 'rescue_coordinator'
-  | 'newbie_guardian';
+  | 'newbie_guardian'
+  | 'health_advisor';
 
 export interface Conversation {
   id: string;
@@ -471,6 +472,294 @@ export interface CreateHealthDiaryParams {
   note?: string;
   imageUrl?: string;
   recordedAt?: string;
+}
+
+// ============================================================
+// 生态六：AI 宠物健康顾问
+// ============================================================
+export type HealthAlertSeverity = 'low' | 'medium' | 'high';
+
+export interface HealthAlert {
+  id: string;
+  petId: string;
+  userId: string;
+  severity: HealthAlertSeverity;
+  title: string;
+  message: string;
+  sourceSnapshot?: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface HealthConsultationLog {
+  id: string;
+  userId: string;
+  petId: string | null;
+  sessionId: string;
+  role: 'user' | 'model';
+  content: string;
+  createdAt: string;
+}
+
+// ============================================================
+// 生态二：宠物险与健康保障中心
+// ============================================================
+export type InsuranceProductCategory = 'all' | 'dog' | 'cat' | 'other';
+
+export interface InsuranceProduct {
+  id: string;
+  name: string;
+  description: string;
+  coverageAmount: number;
+  premiumYuan: number;
+  pointsPerYuan: number;
+  category: InsuranceProductCategory;
+  minAgeMonths: number;
+  maxAgeMonths: number | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type InsurancePolicyStatus = 'active' | 'expired' | 'cancelled';
+
+export interface InsurancePolicy {
+  id: string;
+  userId: string;
+  petId: string;
+  productId: string;
+  premiumYuan: number;
+  pointsUsed: number;
+  pointsDiscountYuan: number;
+  status: InsurancePolicyStatus;
+  startAt: string;
+  endAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InsurancePolicyWithDetails extends InsurancePolicy {
+  productName?: string;
+  petName?: string;
+}
+
+export type InsuranceClaimStatus = 'pending' | 'reviewing' | 'approved' | 'rejected';
+
+export interface InsuranceClaim {
+  id: string;
+  policyId: string;
+  userId: string;
+  petId: string;
+  claimAmountYuan: number;
+  description: string;
+  medicalImageUrl: string | null;
+  status: InsuranceClaimStatus;
+  rejectReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInsuranceClaimParams {
+  policyId: string;
+  petId: string;
+  claimAmountYuan: number;
+  description: string;
+  medicalImageUrl?: string;
+}
+
+// ============================================================
+// 生态一：社区宠物达人体系
+// ============================================================
+export type ExpertCertificationType = 'trainer' | 'nutritionist' | 'medical_volunteer';
+export type ExpertLevel = 'bronze' | 'silver' | 'gold';
+export type ExpertProfileStatus = 'pending' | 'approved' | 'rejected';
+
+export interface ExpertProfile {
+  id: string;
+  userId: string;
+  level: ExpertLevel;
+  certificationType: ExpertCertificationType;
+  columnBio: string;
+  status: ExpertProfileStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpertWithProfile extends ExpertProfile {
+  nickname: string;
+  avatarUrl: string;
+  bio?: string;
+  city?: string;
+  followerCount: number;
+  isFollowing?: boolean;
+}
+
+export interface ExpertTip {
+  id: string;
+  tipperId: string;
+  expertId: string;
+  points: number;
+  platformTake: number;
+  expertReceived: number;
+  createdAt: string;
+}
+
+export interface ExpertEarning {
+  id: string;
+  expertId: string;
+  source: 'tip';
+  amount: number;
+  tipId?: string | null;
+  createdAt: string;
+}
+
+// ============================================================
+// 生态四：宠物社群与城市挑战赛
+// ============================================================
+export type ChallengeStatus = 'upcoming' | 'active' | 'ended';
+export type ChallengeRewardType = 'points' | 'merch' | 'cash' | 'points_double';
+export type ChallengeParticipantStatus = 'joined' | 'completed';
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  cityName: string;
+  rewardType: ChallengeRewardType;
+  rewardValue: number;
+  rewardDesc?: string | null;
+  minTeamSize: number;
+  maxTeamSize: number;
+  sponsorName?: string | null;
+  status: ChallengeStatus;
+  startAt: string;
+  endAt: string;
+  participantCount?: number;
+  myParticipant?: ChallengeParticipant | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChallengeParticipant {
+  id: string;
+  challengeId: string;
+  userId: string;
+  teamId?: string | null;
+  score: number;
+  status: ChallengeParticipantStatus;
+  joinedAt: string;
+  completedAt?: string | null;
+  nickname?: string;
+  avatarUrl?: string;
+  teamName?: string;
+  rank?: number;
+}
+
+export interface ChallengeTeam {
+  id: string;
+  challengeId: string;
+  name: string;
+  leaderId: string;
+  memberCount: number;
+  totalScore: number;
+  leaderNickname?: string;
+  leaderAvatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AchievementBadge {
+  id: string;
+  userId: string;
+  badgeKey: string;
+  title: string;
+  description: string;
+  challengeId?: string | null;
+  imageUrl?: string | null;
+  earnedAt: string;
+  createdAt: string;
+}
+
+export interface JoinChallengeParams {
+  challengeId: string;
+  teamId?: string;
+}
+
+export interface CreateChallengeTeamParams {
+  challengeId: string;
+  name: string;
+}
+
+// ============================================================
+// 生态三：线下门店体验中心
+// ============================================================
+export type StoreType = 'hospital' | 'clinic' | 'grooming' | 'training' | 'other';
+
+export interface Store {
+  id: string;
+  name: string;
+  storeType: StoreType;
+  address: string;
+  province?: string;
+  cityName?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  coverImage: string;
+  description: string;
+  businessHours: string;
+  contactPhone: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StoreBookingStatus = 'pending' | 'confirmed' | 'used' | 'cancelled';
+export type StoreServiceType = 'visit' | 'grooming' | 'training' | 'checkup' | 'other';
+
+export interface StoreBooking {
+  id: string;
+  userId: string;
+  storeId: string;
+  petId?: string | null;
+  serviceType: StoreServiceType;
+  bookingAt: string;
+  status: StoreBookingStatus;
+  pointsUsed: number;
+  couponCode?: string | null;
+  note?: string | null;
+  verifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoreBookingWithStore extends StoreBooking {
+  storeName?: string;
+  storeAddress?: string;
+}
+
+export type StoreMembershipType = 'basic' | 'silver' | 'gold';
+
+export interface StoreMembership {
+  id: string;
+  userId: string;
+  storeId: string;
+  membershipType: StoreMembershipType;
+  points: number;
+  validUntil?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoreStaff {
+  id: string;
+  storeId: string;
+  userId: string;
+  role: 'manager' | 'staff';
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================

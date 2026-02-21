@@ -1,6 +1,6 @@
 # Project Rules (generated)
 
-Generated at: 2026-02-21 09:59:10 +08:00
+Generated at: 2026-02-21 20:09:34 +08:00
 
 ## Source: .ai/rules/00-global.md
 
@@ -65,6 +65,7 @@ Generated at: 2026-02-21 09:59:10 +08:00
 - ai-features
 - dark-mode-design
 - deploy
+- ecosystem-task-spec
 - github-batch-commits
 - mcp-manager
 - phased-task-delivery

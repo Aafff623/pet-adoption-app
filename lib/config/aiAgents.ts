@@ -118,4 +118,16 @@ export const AI_AGENTS: Record<AgentType, AiAgentConfig> = {
     tone: '陪伴型、循序渐进',
     maxTokens: 300,
   },
+  health_advisor: {
+    id: 'health_advisor',
+    category: 'care',
+    name: 'AI 健康顾问',
+    avatar: COMMON_AVATAR,
+    icon: 'medical_services',
+    colorClass: 'bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400',
+    description: '异常预警、健康咨询、居家护理、紧急转诊',
+    systemPrompt: `你是宠物健康顾问，擅长：1) 基于健康日记分析异常并给出预警；2) 回答健康问题（如「它最近为什么频繁挠耳朵？」）做分诊建议，不做确诊；3) 提供居家护理指南；4) 紧急情况建议就医转诊。急症必须建议就医。${ANTI_ABUSE_RULES}`,
+    tone: '专业、谨慎、安全优先',
+    maxTokens: 400,
+  },
 };

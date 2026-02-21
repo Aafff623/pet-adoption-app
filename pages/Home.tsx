@@ -100,6 +100,7 @@ const Home: React.FC = () => {
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterUrgent, setFilterUrgent] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [filterCategory, setFilterCategory] = useState<CategoryId>('all');
   // 已应用的服务端筛选状态
   const [appliedGender, setAppliedGender] = useState<'all' | 'male' | 'female'>('all');
   const [appliedUrgent, setAppliedUrgent] = useState(false);
@@ -295,12 +296,15 @@ const Home: React.FC = () => {
   };
 
   const handleApplyFilter = () => {
+    setActiveCategory(filterCategory);
     setAppliedGender(filterGender);
     setAppliedUrgent(filterUrgent);
     setShowFilterSheet(false);
   };
 
   const handleResetFilter = () => {
+    setFilterCategory('all');
+    setActiveCategory('all');
     setFilterGender('all');
     setFilterUrgent(false);
     setAppliedGender('all');
@@ -420,77 +424,70 @@ const Home: React.FC = () => {
       </header>
 
       <main className="px-6 space-y-5">
-        {/* 分类筛选 */}
-        <section className="overflow-x-auto scrollbar-hide -mx-6 px-6 py-1">
-          <div className="flex space-x-3 w-max">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-sm transition-all active:scale-[0.96] whitespace-nowrap ${
-                  activeCategory === cat.id
-                    ? 'bg-primary text-black dark:text-white shadow-primary/20'
-                    : 'bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700'
-                }`}
-              >
-                <span className="text-lg">{cat.icon}</span>
-                <span>{cat.label}</span>
-              </button>
-            ))}
+        {/* 快捷入口：美团风小圆球 */}
+        <section className="bg-white dark:bg-zinc-800 rounded-2xl border border-gray-100 dark:border-zinc-700 px-3 py-4">
+          <div className="grid grid-cols-5 gap-y-4">
+            <button
+              onClick={() => navigate('/lost-alerts')}
+              aria-label="失踪宠物 应急广播"
+              className="flex flex-col items-center gap-1.5 active:scale-[0.97] transition-all"
+            >
+              <span className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-300 flex items-center justify-center text-xl">🔍</span>
+              <span className="text-[11px] font-semibold text-text-main dark:text-zinc-100">失踪宠物</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!user) { navigate(`/login?redirect=${encodeURIComponent('/rescue-board')}`); return; }
+                localStorage.setItem(RESCUE_LAST_SEEN_KEY, new Date().toISOString());
+                setHasNewRescueTask(false);
+                navigate('/rescue-board');
+              }}
+              aria-label="救助协作 任务板"
+              className="flex flex-col items-center gap-1.5 active:scale-[0.97] transition-all"
+            >
+              <span className="relative w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center">
+                <span className="material-icons-round text-xl">volunteer_activism</span>
+                {hasNewRescueTask && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-red-500 border border-white dark:border-zinc-900" />
+                )}
+              </span>
+              <span className="text-[11px] font-semibold text-text-main dark:text-zinc-100">救助协作</span>
+            </button>
+
+            <button
+              onClick={() => { if (!user) { navigate(`/login?redirect=${encodeURIComponent('/points')}`); return; } navigate('/points'); }}
+              aria-label="积分商店"
+              className="flex flex-col items-center gap-1.5 active:scale-[0.97] transition-all"
+            >
+              <span className="w-12 h-12 rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-300 flex items-center justify-center">
+                <span className="material-icons-round text-xl">stars</span>
+              </span>
+              <span className="text-[11px] font-semibold text-text-main dark:text-zinc-100">积分商店</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/experts')}
+              aria-label="宠物达人"
+              className="flex flex-col items-center gap-1.5 active:scale-[0.97] transition-all"
+            >
+              <span className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
+                <span className="material-icons-round text-xl">verified_user</span>
+              </span>
+              <span className="text-[11px] font-semibold text-text-main dark:text-zinc-100">宠物达人</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/stores')}
+              aria-label="线下门店"
+              className="flex flex-col items-center gap-1.5 active:scale-[0.97] transition-all"
+            >
+              <span className="w-12 h-12 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-300 flex items-center justify-center">
+                <span className="material-icons-round text-xl">storefront</span>
+              </span>
+              <span className="text-[11px] font-semibold text-text-main dark:text-zinc-100">线下门店</span>
+            </button>
           </div>
-        </section>
-
-        {/* 快捷入口：横向小卡片 */}
-        <section className="grid grid-cols-3 gap-3">
-          {/* 失踪宠物 */}
-          <button
-            onClick={() => navigate('/lost-alerts')}
-            aria-label="失踪宠物 应急广播"
-            className="flex items-center gap-3 bg-gradient-to-br from-orange-600 to-amber-600 dark:from-orange-900/70 dark:to-amber-900/60 rounded-2xl px-3 py-2 h-14 active:scale-[0.97] transition-all shadow-sm"
-          >
-            <div className="w-8 h-8 bg-orange-400 dark:bg-orange-800/60 rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-lg">🔍</span>
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-white leading-snug">失踪宠物</p>
-            </div>
-          </button>
-
-          {/* 救助任务板 */}
-          <button
-            onClick={() => {
-              if (!user) { navigate(`/login?redirect=${encodeURIComponent('/rescue-board')}`); return; }
-              localStorage.setItem(RESCUE_LAST_SEEN_KEY, new Date().toISOString());
-              setHasNewRescueTask(false);
-              navigate('/rescue-board');
-            }}
-            aria-label="救助协作 任务板"
-            className="flex items-center gap-3 bg-gradient-to-br from-blue-600 to-cyan-600 dark:from-blue-900/70 dark:to-cyan-900/60 rounded-2xl px-3 py-2 h-14 active:scale-[0.97] transition-all shadow-sm"
-          >
-            <div className="relative w-8 h-8 bg-blue-500 dark:bg-blue-800/60 rounded-lg flex items-center justify-center shrink-0">
-              <span className="material-icons-round text-white text-xl">volunteer_activism</span>
-              {hasNewRescueTask && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border border-white dark:border-zinc-900" />
-              )}
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-white leading-snug">救助协作</p>
-            </div>
-          </button>
-
-          {/* 积分商店 */}
-          <button
-            onClick={() => { if (!user) { navigate(`/login?redirect=${encodeURIComponent('/points')}`); return; } navigate('/points'); }}
-            aria-label="积分商店"
-            className="flex items-center gap-3 bg-gradient-to-br from-pink-600 to-pink-700 dark:from-pink-900/75 dark:to-pink-900/65 rounded-2xl px-3 py-2 h-14 active:scale-[0.97] transition-all shadow-sm"
-          >
-            <div className="w-8 h-8 bg-pink-500 dark:bg-pink-800/60 rounded-lg flex items-center justify-center shrink-0">
-              <span className="material-icons-round text-white text-xl">stars</span>
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-white leading-snug">积分商店</p>
-            </div>
-          </button>
         </section>
 
         <section className="relative overflow-hidden bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-primary/20 dark:border-zinc-700 p-4">
@@ -691,7 +688,7 @@ const Home: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">新到伙伴</h2>
             <div className="flex items-center gap-2">
-                {(appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
+                {(activeCategory !== 'all' || appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
                   <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
                     已筛选
                   </span>
@@ -910,6 +907,25 @@ const Home: React.FC = () => {
               >
                 <span className="material-icons-round text-gray-500 dark:text-zinc-400 text-xl">close</span>
               </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-600 dark:text-zinc-400">动物类型</p>
+              <div className="grid grid-cols-3 gap-2">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setFilterCategory(cat.id)}
+                    className={`py-2 rounded-xl text-sm font-medium transition-all active:scale-[0.96] ${
+                      filterCategory === cat.id
+                        ? 'bg-primary text-black'
+                        : 'bg-gray-50 dark:bg-zinc-700 text-gray-600 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-zinc-600'
+                    }`}
+                  >
+                    {cat.icon} {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -69,6 +69,15 @@ const REDEEM_ITEMS: RedeemItem[] = [
     cost: 200,
     route: '/points/merch-pack',
   },
+  {
+    icon: 'shield',
+    gradient: 'from-emerald-500 to-teal-600',
+    title: '宠物险保障中心',
+    desc: '积分可抵扣保费，在线理赔秒审',
+    tag: '保障',
+    cost: 0,
+    route: '/insurance',
+  },
 ];
 
 const EVENT_UPDATES = [
@@ -236,9 +245,15 @@ const Points: React.FC = () => {
                     </div>
                     <p className="text-xs text-gray-500 dark:text-zinc-400 line-clamp-1">{item.desc}</p>
                     <div className="flex items-center gap-1 mt-2">
-                      <span className={`text-base font-extrabold ${affordable ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>{item.cost}</span>
-                      <span className="text-xs text-gray-400 dark:text-zinc-500">积分</span>
-                      {!affordable && <span className="ml-1 text-[10px] text-red-400 font-medium">差 {item.cost - points} 分</span>}
+                      {item.cost === 0 ? (
+                        <span className="text-sm font-bold text-primary">进入</span>
+                      ) : (
+                        <>
+                          <span className={`text-base font-extrabold ${affordable ? 'text-primary' : 'text-gray-400 dark:text-zinc-500'}`}>{item.cost}</span>
+                          <span className="text-xs text-gray-400 dark:text-zinc-500">积分</span>
+                          {!affordable && <span className="ml-1 text-[10px] text-red-400 font-medium">差 {item.cost - points} 分</span>}
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="pr-3 flex items-center">

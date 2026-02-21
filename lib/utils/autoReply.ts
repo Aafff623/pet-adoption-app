@@ -1,4 +1,4 @@
-const DIALOGUE_DB: { keywords: string[]; replies: string[] }[] = [
+const DIALOGUE_DB: { keywords: string[]; replies: string[]; matchWhenShortOnly?: boolean }[] = [
   {
     keywords: ['申请', '流程', '审核', '通过', '领养流程', '怎么申请'],
     replies: [

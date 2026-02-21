@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { fetchPetById } from '../lib/api/pets';
@@ -445,6 +445,23 @@ const PetHealthDiaryPage: React.FC = () => {
               <p className="text-xs mt-1">点击上方按钮，AI 为你解读宠物健康状态</p>
             </div>
           )}
+
+          <div className="flex gap-2">
+            <Link
+              to="/health-advisor"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 text-sm font-medium"
+            >
+              <span className="material-icons-round text-base">medical_services</span>
+              AI 健康顾问
+            </Link>
+            <Link
+              to="/health-alerts"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-sm font-medium"
+            >
+              <span className="material-icons-round text-base">notifications</span>
+              健康预警
+            </Link>
+          </div>
 
           <p className="text-[11px] text-gray-400 dark:text-zinc-500 text-center pb-2">
             AI 分析仅供参考，不代替专业兽医诊断
