@@ -68,7 +68,10 @@ export const fetchPetList = async (
   }
   if (params.location && params.location.trim()) {
     const kw = `%${params.location.trim()}%`;
-    query = query.or(`location.ilike.${kw},province.ilike.${kw},city_name.ilike.${kw}`);
+    // Use only the unified `location` column for location-based filtering.
+    // Older deployments may not have `province` / `city_name` columns applied via migrations,
+    // so avoid referencing them here to prevent PostgREST schema errors.
+    query = query.or(`location.ilike.${kw}`);
   }
 
   const { data, error } = await query;

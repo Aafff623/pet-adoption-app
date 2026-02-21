@@ -5,7 +5,9 @@ import LocationPicker, { formatLocationDisplay, type LocationOption } from '../c
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { updateProfile, uploadAvatar, AvatarUploadError } from '../lib/api/profile';
+import { updateUserEmail } from '../lib/api/account';
 import { fetchApplyingCount } from '../lib/api/adoption';
+import { getPointsLevelState } from '../lib/api/points';
 import { parseLocationDisplay, DEFAULT_LOCATION } from '../lib/data/regions';
 
 const DEFAULT_AVATAR = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDgVPpxg8HIumU7EpauZP9ZlqirzBnKLdJFGK3sIDR54NKgoMvWdCpOnQkKZ8i9pqr-ZwirabrItbbt19Vsp_Ks7rywsrwksbIasOlJwu_nzBSwVNsNqNU-QjsRBwhhPM8QaaDUMMydnkQNIgx8i8vIvll48zgOHd8bQb75k7SbZ6Q_TY-_ic2MXjg2J04C-ZxWIQTqZSB2ovFoiPFZMYQSivk3XgoNPRSlgXwh6z0jYRNW1FiTPEJPxBeGSAmJTnizmRheXOoL44o';
@@ -23,6 +25,7 @@ const Profile: React.FC = () => {
 
   const [editNickname, setEditNickname] = useState('');
   const [editBio, setEditBio] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editLocation, setEditLocation] = useState<LocationOption>(DEFAULT_LOCATION);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,6 +41,7 @@ const Profile: React.FC = () => {
   const openEditSheet = () => {
     setEditNickname(profile?.nickname ?? '');
     setEditBio(profile?.bio ?? '');
+    setEditEmail(email);
     setEditLocation(parseLocationDisplay(profile?.city ?? '') ?? DEFAULT_LOCATION);
     setShowEditSheet(true);
   };
@@ -51,17 +55,33 @@ const Profile: React.FC = () => {
       showToast('昵称不能为空');
       return;
     }
+    if (editEmail.trim() && !/^\S+@\S+\.\S+$/.test(editEmail.trim())) {
+      showToast('请输入正确的邮箱格式');
+      return;
+    }
     setSaving(true);
     try {
       await updateProfile(user.id, {
         nickname: editNickname.trim(),
         bio: editBio.trim(),
         city: formatLocationDisplay(editLocation),
+        province: editLocation.province,
+        cityName: editLocation.city,
       });
+
+      const normalizedOldEmail = (email || '').trim().toLowerCase();
+      const normalizedNewEmail = editEmail.trim().toLowerCase();
+      if (normalizedNewEmail && normalizedNewEmail !== normalizedOldEmail) {
+        await updateUserEmail(normalizedNewEmail);
+        showToast('邮箱换绑请求已提交，请前往新邮箱完成确认');
+      }
+
       await refreshProfile();
       setShowEditSheet(false);
       setShowLocationPicker(false);
-      showToast('资料已更新');
+      if (!(editEmail.trim().toLowerCase() && editEmail.trim().toLowerCase() !== (email || '').trim().toLowerCase())) {
+        showToast('资料已更新');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : '更新失败';
       showToast(msg.includes('row-level security') || msg.includes('RLS') ? '权限不足，请检查 Supabase 策略' : `更新失败：${msg}`);
@@ -115,7 +135,22 @@ const Profile: React.FC = () => {
   const avatarUrl = profile?.avatarUrl || DEFAULT_AVATAR;
   const userId = user?.id?.slice(0, 8) ?? '--------';
   const email = user?.email ?? '';
-  const currentPoints = (profile?.adoptedCount ?? 0) * 200 + applyingCount * 30 + (profile?.followingCount ?? 0) * 10;
+  const currentPoints = profile?.points ?? ((profile?.adoptedCount ?? 0) * 200 + applyingCount * 30 + (profile?.followingCount ?? 0) * 10);
+  const levelState = getPointsLevelState(currentPoints);
+  const levelTheme = levelState.current.key === 'gold'
+    ? {
+        wrap: 'bg-gradient-to-br from-amber-500/20 via-rose-500/15 to-orange-500/20 border-amber-300/40 dark:border-amber-500/30',
+        badge: 'bg-amber-500 text-black',
+      }
+    : levelState.current.key === 'silver'
+      ? {
+          wrap: 'bg-gradient-to-br from-slate-300/20 via-slate-500/10 to-slate-600/20 border-slate-300/40 dark:border-slate-500/30',
+          badge: 'bg-slate-600 text-white',
+        }
+      : {
+          wrap: 'bg-gradient-to-br from-amber-600/15 via-amber-400/10 to-orange-600/15 border-amber-500/30 dark:border-amber-700/40',
+          badge: 'bg-amber-700 text-white',
+        };
 
   const redeemPreview = [
     { name: '领养优先券', points: 300, icon: 'local_activity' },
@@ -217,6 +252,30 @@ const Profile: React.FC = () => {
                 <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1">当前可用</p>
               </div>
             </div>
+
+              <div className={`mt-3 rounded-xl border px-3 py-3 ${levelTheme.wrap}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`h-7 px-2 rounded-full text-xs font-bold flex items-center ${levelTheme.badge}`}>
+                      {levelState.current.label}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 leading-tight break-words">{levelState.current.description}</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-primary sm:text-right leading-snug break-words">
+                    {levelState.next
+                      ? `距 ${levelState.next.label} 还差 ${levelState.pointsToNext} 分`
+                      : '已达最高等级'}
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 rounded-full bg-background-light dark:bg-zinc-900 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${Math.min(1, Math.max(0, levelState.progress)) * 100}%` }}
+                  />
+                </div>
+              </div>
 
               <button
                 type="button"
@@ -347,13 +406,14 @@ const Profile: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="edit-profile-title"
-          className="fixed inset-0 bg-black/50 dark:bg-black/60 z-[999] flex items-end justify-center"
+          className="fixed inset-0 bg-black/55 dark:bg-black/65 z-[999] flex items-end justify-center"
           onClick={e => { if (e.target === e.currentTarget && !saving) setShowEditSheet(false); }}
         >
           <div
-            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md p-6 space-y-5 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-zinc-800 rounded-t-3xl w-full max-w-md pt-3 px-6 pb-4 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
+            <div className="w-12 h-1 rounded-full bg-gray-200 dark:bg-zinc-600 mx-auto" />
             {/* 顶部标题 */}
             <div className="flex items-center justify-between">
               <h3 id="edit-profile-title" className="text-base font-bold text-gray-900 dark:text-zinc-100">编辑资料</h3>
@@ -367,7 +427,7 @@ const Profile: React.FC = () => {
             </div>
 
             {/* 头像（可更换）*/}
-            <div className="flex flex-col items-center py-2">
+            <div className="flex flex-col items-center py-3 rounded-2xl bg-gradient-to-br from-primary/10 to-pink-500/10 dark:from-primary/20 dark:to-pink-500/20 border border-gray-100 dark:border-zinc-700">
               <label
                 htmlFor={avatarUploading ? undefined : 'avatar-file-input'}
                 className={`flex flex-col items-center cursor-pointer select-none ${avatarUploading ? 'pointer-events-none opacity-70' : ''}`}
@@ -392,6 +452,7 @@ const Profile: React.FC = () => {
               </label>
             </div>
 
+            <div className="rounded-2xl border border-gray-100 dark:border-zinc-700 p-4 space-y-4">
             {/* 昵称 */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700 dark:text-zinc-300" htmlFor="edit-nickname">
@@ -448,14 +509,24 @@ const Profile: React.FC = () => {
               value={editLocation}
               onChange={setEditLocation}
             />
+            </div>
 
-            {/* 邮箱（只读）*/}
+            {/* 邮箱（可换绑）*/}
+            <div className="rounded-2xl border border-gray-100 dark:border-zinc-700 p-4 space-y-3">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700 dark:text-zinc-300">邮箱</label>
-              <div className="w-full bg-gray-100 dark:bg-zinc-700 rounded-xl px-4 py-3 flex items-center justify-between">
-                <span className="text-sm text-gray-500 dark:text-zinc-400">{email || '未绑定'}</span>
-                <span className="material-icons-round text-gray-300 dark:text-zinc-500 text-base">lock</span>
+              <label className="text-sm font-medium text-gray-700 dark:text-zinc-300" htmlFor="edit-email">邮箱</label>
+              <div className="w-full bg-gray-50 dark:bg-zinc-700 rounded-xl px-4 py-3 border border-gray-200 dark:border-zinc-600 flex items-center gap-2">
+                <input
+                  id="edit-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={e => setEditEmail(e.target.value)}
+                  placeholder="输入新邮箱用于换绑"
+                  className="flex-1 bg-transparent outline-none text-sm text-gray-700 dark:text-zinc-200 placeholder:text-gray-400 dark:placeholder:text-zinc-500"
+                />
+                <span className="material-icons-round text-gray-300 dark:text-zinc-500 text-base">mail</span>
               </div>
+              <p className="text-[11px] text-gray-400 dark:text-zinc-500">修改后需在新邮箱中完成验证确认</p>
             </div>
 
             {/* 账号 ID（只读）*/}
@@ -466,9 +537,10 @@ const Profile: React.FC = () => {
                 <span className="material-icons-round text-gray-300 dark:text-zinc-500 text-base">lock</span>
               </div>
             </div>
+            </div>
 
             {/* 操作按钮 */}
-            <div className="flex gap-3 pt-2 pb-2">
+            <div className="sticky bottom-0 bg-white/95 dark:bg-zinc-800/95 backdrop-blur-sm py-2 flex gap-3">
               <button
                 onClick={() => { setShowEditSheet(false); setShowLocationPicker(false); }}
                 disabled={saving}

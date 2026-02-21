@@ -11,6 +11,7 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
   id              UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nickname        TEXT        NOT NULL DEFAULT '宠物爱好者',
+  email           TEXT        DEFAULT '',
   avatar_url      TEXT        DEFAULT '',
   bio             TEXT        DEFAULT '',
   city            TEXT        DEFAULT '',
@@ -45,6 +46,10 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'nickname', '宠物爱好者'),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url', '')
   );
+
+  UPDATE public.profiles
+  SET email = COALESCE(NEW.email, '')
+  WHERE id = NEW.id;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -1,11 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { fetchConversations, deleteConversation, getOrCreateAIConversation } from '../lib/api/messages';
+import {
+  fetchConversations,
+  deleteConversation,
+  getOrCreateAIConversation,
+  markConversationRead,
+  getOrCreateSystemConversation,
+  insertSystemReply,
+} from '../lib/api/messages';
+import { AI_AGENTS } from '../lib/config/aiAgents';
+import type { AiAgentCategory } from '../lib/config/aiAgents';
 import type { Conversation } from '../types';
 import { formatRelativeTime } from '../lib/utils/date';
+
+const REPORT_INTERVAL_DAYS = 10;
+
+const AI_AGENT_CATEGORY_META: Array<{ key: 'all' | AiAgentCategory; label: string }> = [
+  { key: 'all', label: '全部' },
+  { key: 'adoption', label: '领养' },
+  { key: 'care', label: '照护' },
+  { key: 'rescue', label: '救助' },
+  { key: 'growth', label: '成长' },
+];
+
+const AI_AGENT_GROUP_ORDER: AiAgentCategory[] = ['adoption', 'care', 'rescue', 'growth'];
+const AI_AGENT_GROUP_LABEL: Record<AiAgentCategory, string> = {
+  adoption: '领养咨询',
+  care: '健康照护',
+  rescue: '救助协作',
+  growth: '陪伴成长',
+};
 
 const Messages: React.FC = () => {
   const { showToast } = useToast();
@@ -19,12 +46,16 @@ const Messages: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [activeAgentCategory, setActiveAgentCategory] = useState<'all' | AiAgentCategory>('all');
+  const [showAiQuickPanel, setShowAiQuickPanel] = useState(false);
   const [reportPopup, setReportPopup] = useState<{ visible: boolean; content: string }>({ visible: false, content: '' });
   const reportPopupTimerRef = useRef<number | null>(null);
   const lastReportKeyRef = useRef('');
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const activityAnchorRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, profile } = useAuth();
 
   useEffect(() => {
     if (!user) return;
@@ -95,6 +126,46 @@ const Messages: React.FC = () => {
     }
   }, [showSearch]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldScroll = params.get('from') === 'play-center' || params.get('anchor') === 'activity-zone';
+    if (!shouldScroll) return;
+    const timer = window.setTimeout(() => {
+      activityAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!user || !profile) return;
+    if ((profile.applyingCount ?? 0) <= 0 && (profile.adoptedCount ?? 0) <= 0) return;
+
+    const key = `petconnect_score_report_${user.id}`;
+    const last = localStorage.getItem(key);
+    const now = Date.now();
+    const intervalMs = REPORT_INTERVAL_DAYS * 24 * 60 * 60 * 1000;
+
+    if (last && now - Number(last) < intervalMs) {
+      return;
+    }
+
+    const pushReport = async () => {
+      const activityScore = Math.min(100, 40 + (profile.applyingCount ?? 0) * 12 + (profile.adoptedCount ?? 0) * 18);
+      const careScore = Math.min(100, 50 + (profile.followingCount ?? 0) * 3 + (profile.adoptedCount ?? 0) * 10);
+      const stabilityScore = Math.min(100, 45 + (profile.adoptedCount ?? 0) * 15);
+      const summary = `📊 10天成长评分报告：活跃度 ${activityScore} 分、照护力 ${careScore} 分、稳定度 ${stabilityScore} 分。建议：继续完成回访与救助协作任务，提升综合评级。`;
+      try {
+        const convId = await getOrCreateSystemConversation(user.id);
+        await insertSystemReply(convId, summary);
+        localStorage.setItem(key, String(now));
+      } catch {
+        // 静默失败，避免打断消息页
+      }
+    };
+
+    void pushReport();
+  }, [user, profile]);
+
   const handleToggleSearch = () => {
     if (showSearch) {
       setShowSearch(false);
@@ -144,6 +215,19 @@ const Messages: React.FC = () => {
     }
   };
 
+  const handleMarkSelectedRead = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      await Promise.all(Array.from(selectedIds).map((convId) => markConversationRead(convId)));
+      setConversations((prev) => prev.map((conv) => (selectedIds.has(conv.id) ? { ...conv, unreadCount: 0 } : conv)));
+      showToast(`已标记 ${selectedIds.size} 个会话为已读`);
+      setSelectedIds(new Set());
+      setEditMode(false);
+    } catch {
+      showToast('批量标记失败，请重试');
+    }
+  };
+
   const tabFiltered = conversations.filter(conv => {
     if (activeTab === 'unread') return conv.unreadCount > 0;
     if (activeTab === 'official') return conv.isSystem;
@@ -157,6 +241,11 @@ const Messages: React.FC = () => {
           (c.lastMessage && c.lastMessage.includes(searchQuery.trim()))
       )
     : tabFiltered;
+
+  const aiAgentList = Object.values(AI_AGENTS);
+  const filteredAiAgents = activeAgentCategory === 'all'
+    ? aiAgentList
+    : aiAgentList.filter(item => item.category === activeAgentCategory);
 
   return (
     <div className="bg-background-light dark:bg-zinc-900 min-h-screen flex flex-col fade-in">
@@ -228,42 +317,87 @@ const Messages: React.FC = () => {
       </header>
 
       {/* AI 智能体入口 */}
-      <div className="px-6 mb-4 shrink-0">
-        <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-3">AI 智能体</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { id: 'pet_expert' as const, name: '宠物专家', icon: 'pets', color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400', desc: '领养与养宠咨询' },
-            { id: 'emotional_counselor' as const, name: '情感顾问', icon: 'favorite', color: 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400', desc: '领养心理支持' },
-          ].map(item => (
+      <div ref={activityAnchorRef} className="px-6 mb-4 shrink-0">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/20 dark:border-zinc-700 bg-gradient-to-br from-white to-pink-50/40 dark:from-zinc-800 dark:to-zinc-900">
+          <div className="absolute -top-10 -right-8 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+          <div className="px-3 py-2.5 flex items-center justify-between">
             <button
-              key={item.id}
-              onClick={async () => {
-                if (!user || aiLoading) return;
-                setAiLoading(item.id);
-                try {
-                  const convId = await getOrCreateAIConversation(user.id, item.id);
-                  navigate(`/chat/${convId}`);
-                } catch {
-                  showToast('发起 AI 会话失败，请重试');
-                } finally {
-                  setAiLoading(null);
-                }
-              }}
-              disabled={!!aiLoading}
-              className="flex items-center gap-3 p-4 rounded-2xl bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all text-left disabled:opacity-60 shadow-sm"
+              onClick={() => setShowAiQuickPanel((prev) => !prev)}
+              className="flex items-center gap-2"
             >
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${item.color}`}>
-                <span className="material-icons-round text-2xl">{item.icon}</span>
+              <div className="w-7 h-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                <span className="material-icons-round text-sm">smart_toy</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">{item.name}</p>
-                <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                  {aiLoading === item.id ? '连接中...' : item.desc}
-                </p>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wider">AI 智能体</p>
+                {!showAiQuickPanel && (
+                  <p className="text-[11px] text-gray-400 dark:text-zinc-500">{filteredAiAgents.length} 个助手可快速发起</p>
+                )}
               </div>
-              <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-lg shrink-0">chevron_right</span>
+              <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-base">{showAiQuickPanel ? 'expand_less' : 'expand_more'}</span>
             </button>
-          ))}
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/15 text-primary">智能助理</span>
+              <button
+                onClick={() => setShowNewChat(true)}
+                className="text-xs font-semibold text-primary active:scale-[0.97] transition-all"
+              >
+                更多
+              </button>
+            </div>
+          </div>
+
+          {showAiQuickPanel && (
+            <div className="px-3 pb-3">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {AI_AGENT_CATEGORY_META.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => setActiveAgentCategory(item.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                      activeAgentCategory === item.key
+                        ? 'bg-primary text-black'
+                        : 'bg-background-light dark:bg-zinc-900 border border-gray-100 dark:border-zinc-700 text-gray-500 dark:text-zinc-400'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {filteredAiAgents.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={async () => {
+                      if (!user || aiLoading) return;
+                      setAiLoading(item.id);
+                      try {
+                        const convId = await getOrCreateAIConversation(user.id, item.id);
+                        navigate(`/chat/${convId}`);
+                      } catch {
+                        showToast('发起 AI 会话失败，请重试');
+                      } finally {
+                        setAiLoading(null);
+                      }
+                    }}
+                    disabled={!!aiLoading}
+                    className="min-w-[148px] flex items-center gap-2 p-2.5 rounded-xl bg-background-light dark:bg-zinc-900 border border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all text-left disabled:opacity-60 shadow-sm"
+                  >
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.colorClass}`}>
+                      <span className="material-icons-round text-lg">{item.icon}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-900 dark:text-zinc-100 truncate">{item.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                        {aiLoading === item.id ? '连接中...' : item.description}
+                      </p>
+                    </div>
+                    <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-base shrink-0">chevron_right</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -392,13 +526,22 @@ const Messages: React.FC = () => {
           >
             {selectedIds.size === displayedConversations.length ? '取消全选' : '全选'}
           </button>
-          <button
-            onClick={handleDeleteSelected}
-            disabled={selectedIds.size === 0 || deleting}
-            className="px-6 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm shadow-md shadow-red-500/20 disabled:opacity-40 transition-all active:scale-[0.97]"
-          >
-            {deleting ? '删除中...' : `删除 (${selectedIds.size})`}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleMarkSelectedRead}
+              disabled={selectedIds.size === 0 || deleting}
+              className="px-4 py-2.5 bg-blue-500 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 disabled:opacity-40 transition-all active:scale-[0.97]"
+            >
+              标记已读
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              disabled={selectedIds.size === 0 || deleting}
+              className="px-5 py-2.5 bg-red-500 text-white rounded-xl font-bold text-sm shadow-md shadow-red-500/20 disabled:opacity-40 transition-all active:scale-[0.97]"
+            >
+              {deleting ? '删除中...' : `删除 (${selectedIds.size})`}
+            </button>
+          </div>
         </div>
       )}
 
@@ -441,41 +584,49 @@ const Messages: React.FC = () => {
             <div className="overflow-y-auto flex-1 px-5 py-4">
               {/* AI 助手 */}
               <p className="text-xs font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider mb-3">AI 助手</p>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {[
-                  { id: 'pet_expert' as const, name: '宠物专家', icon: 'pets', color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400' },
-                  { id: 'emotional_counselor' as const, name: '情感顾问', icon: 'favorite', color: 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400' },
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    onClick={async () => {
-                      if (!user || aiLoading) return;
-                      setAiLoading(item.id);
-                      try {
-                        const convId = await getOrCreateAIConversation(user.id, item.id);
-                        setShowNewChat(false);
-                        navigate(`/chat/${convId}`);
-                      } catch {
-                        showToast('发起 AI 会话失败，请重试');
-                      } finally {
-                        setAiLoading(null);
-                      }
-                    }}
-                    disabled={!!aiLoading}
-                    className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all text-left disabled:opacity-60"
-                  >
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${item.color}`}>
-                      <span className="material-icons-round text-2xl">{item.icon}</span>
+              <div className="space-y-4 mb-6">
+                {AI_AGENT_GROUP_ORDER.map((groupKey) => {
+                  const groupItems = aiAgentList.filter(item => item.category === groupKey);
+                  if (groupItems.length === 0) return null;
+                  return (
+                    <div key={groupKey}>
+                      <p className="text-xs font-semibold text-gray-500 dark:text-zinc-400 mb-2">{AI_AGENT_GROUP_LABEL[groupKey]}</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        {groupItems.map(item => (
+                          <button
+                            key={item.id}
+                            onClick={async () => {
+                              if (!user || aiLoading) return;
+                              setAiLoading(item.id);
+                              try {
+                                const convId = await getOrCreateAIConversation(user.id, item.id);
+                                setShowNewChat(false);
+                                navigate(`/chat/${convId}`);
+                              } catch {
+                                showToast('发起 AI 会话失败，请重试');
+                              } finally {
+                                setAiLoading(null);
+                              }
+                            }}
+                            disabled={!!aiLoading}
+                            className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all text-left disabled:opacity-60"
+                          >
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${item.colorClass}`}>
+                              <span className="material-icons-round text-2xl">{item.icon}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">{item.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                                {aiLoading === item.id ? '连接中...' : item.description}
+                              </p>
+                            </div>
+                            <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-lg">chevron_right</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">{item.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
-                        {aiLoading === item.id ? '连接中...' : '专业咨询'}
-                      </p>
-                    </div>
-                    <span className="material-icons-round text-gray-300 dark:text-zinc-600 text-lg">chevron_right</span>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
 
               {/* 最近联系人 */}

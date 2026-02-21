@@ -10,6 +10,7 @@ import { fetchPetList, fetchRecommendedPets, type FetchPetListParams } from '../
 import { fetchRescueTasks } from '../lib/api/rescueTasks';
 import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
 import { DEFAULT_LOCATION } from '../lib/data/regions';
+import { GROWTH_PLAY_CARDS, type GrowthPlayCard } from '../lib/config/growthPlayCenter';
 import type { Pet } from '../types';
 
 type CategoryId = 'all' | 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
@@ -42,6 +43,45 @@ const handleImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
 const CAROUSEL_INTERVAL = 4000;
 const RESCUE_LAST_SEEN_KEY = 'petconnect_rescue_last_seen';
 
+const getPlayCardStatus = (item: GrowthPlayCard, now: Date): 'upcoming' | 'live' | 'ending' | 'ended' => {
+  const start = new Date(item.startAt).getTime();
+  const end = new Date(item.endAt).getTime();
+  const current = now.getTime();
+  if (current < start) return 'upcoming';
+  if (current > end) return 'ended';
+  const remaining = end - current;
+  if (remaining <= 24 * 60 * 60 * 1000) return 'ending';
+  return 'live';
+};
+
+const getStatusLabel = (status: 'upcoming' | 'live' | 'ending' | 'ended'): string => {
+  if (status === 'upcoming') return '即将开始';
+  if (status === 'ending') return '即将截止';
+  if (status === 'ended') return '已结束';
+  return '进行中';
+};
+
+const formatCountdown = (target: string, now: Date): string => {
+  const diff = new Date(target).getTime() - now.getTime();
+  if (diff <= 0) return '已结束';
+  const dayMs = 24 * 60 * 60 * 1000;
+  const hourMs = 60 * 60 * 1000;
+  const minuteMs = 60 * 1000;
+  const days = Math.floor(diff / dayMs);
+  const hours = Math.floor((diff % dayMs) / hourMs);
+  const minutes = Math.floor((diff % hourMs) / minuteMs);
+  if (days > 0) return `${days}天${hours}小时`;
+  if (hours > 0) return `${hours}小时${minutes}分钟`;
+  return `${Math.max(1, minutes)}分钟`;
+};
+
+const getFosterSummary = (pet: Pet): string => {
+  const source = (pet.description || pet.story || '').replace(/\s+/g, ' ').trim();
+  const clipped = source.length > 22 ? `${source.slice(0, 22)}...` : source;
+  const prefix = pet.fosterParent?.name ? `${pet.fosterParent.name}：` : '寄养家庭：';
+  return source ? `${prefix}${clipped}` : `${prefix}性格稳定，适合陪伴家庭。`;
+};
+
 const Home: React.FC = () => {
   const { showToast } = useToast();
   const { user } = useAuth();
@@ -68,6 +108,9 @@ const Home: React.FC = () => {
   const [carouselFavoriteLoading, setCarouselFavoriteLoading] = useState(false);
   const [hasNewRescueTask, setHasNewRescueTask] = useState(false);
   const [isHeaderCompact, setIsHeaderCompact] = useState(false);
+  const [playCenterNow, setPlayCenterNow] = useState(() => new Date());
+  const [playCenterExpanded, setPlayCenterExpanded] = useState(false);
+  const [playStatusFilter, setPlayStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'ended'>('all');
   type ViewMode = 'grid' | 'list' | 'large';
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem('petconnect_view_mode') as ViewMode) ?? 'list'
@@ -79,6 +122,19 @@ const Home: React.FC = () => {
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const newArrivalsRef = useRef<HTMLElement>(null);
   const navigate = useNavigate();
+
+  const playCenterCards = GROWTH_PLAY_CARDS.map((item) => {
+    const status = getPlayCardStatus(item, playCenterNow);
+    return { item, status };
+  });
+
+  const filteredPlayCenterCards = playCenterCards.filter(({ status }) => {
+    if (playStatusFilter === 'all') return true;
+    if (playStatusFilter === 'live') return status === 'live' || status === 'ending';
+    return status === playStatusFilter;
+  });
+
+  const livePlayCount = playCenterCards.filter(({ status }) => status === 'live' || status === 'ending').length;
 
   const stopAutoPlay = () => {
     if (autoPlayRef.current) {
@@ -158,6 +214,13 @@ const Home: React.FC = () => {
 
     void checkNewRescue();
   }, [user]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setPlayCenterNow(new Date());
+    }, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // 滚动监听：收缩 header（带滞后区间防止抖动）
   useEffect(() => {
@@ -352,18 +415,7 @@ const Home: React.FC = () => {
           <span className={`material-icons-round absolute text-gray-400 dark:text-zinc-500 ${
             isHeaderCompact ? 'left-3 top-1 text-base' : 'left-4 top-3 text-xl'
           }`} style={{ transition: 'left 0.4s ease-out, top 0.4s ease-out, font-size 0.4s ease-out' }}>search</span>
-          <button
-            onClick={() => setShowFilterSheet(true)}
-            className={`absolute bg-primary rounded-xl shadow-lg shadow-primary/30 active:scale-[0.95] ${
-              isHeaderCompact ? 'right-2 top-0.5 p-1' : 'right-3 top-2 p-1.5'
-            }`}
-            style={{ transition: 'right 0.4s ease-out, top 0.4s ease-out, padding 0.4s ease-out' }}
-            aria-label="筛选"
-          >
-            <span className={`material-icons-round text-white ${
-              isHeaderCompact ? 'text-xs' : 'text-sm'
-            }`} style={{ transition: 'font-size 0.4s ease-out' }}>tune</span>
-          </button>
+          {/* 筛选按钮已移至“新到伙伴”标题旁 */}
         </div>
       </header>
 
@@ -377,7 +429,7 @@ const Home: React.FC = () => {
                 onClick={() => setActiveCategory(cat.id)}
                 className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-sm transition-all active:scale-[0.96] whitespace-nowrap ${
                   activeCategory === cat.id
-                    ? 'bg-primary text-black shadow-primary/20'
+                    ? 'bg-primary text-black dark:text-white shadow-primary/20'
                     : 'bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700 text-gray-500 dark:text-zinc-400 hover:bg-gray-50 dark:hover:bg-zinc-700'
                 }`}
               >
@@ -389,42 +441,148 @@ const Home: React.FC = () => {
         </section>
 
         {/* 快捷入口：横向小卡片 */}
-        <section className="grid grid-cols-2 gap-3">
+        <section className="grid grid-cols-3 gap-3">
           {/* 失踪宠物 */}
           <button
             onClick={() => navigate('/lost-alerts')}
-            className="flex items-center gap-3 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/50 dark:to-amber-900/40 border border-orange-100 dark:border-orange-700/60 rounded-2xl px-4 py-3.5 active:scale-[0.97] transition-all shadow-sm"
+            aria-label="失踪宠物 应急广播"
+            className="flex items-center gap-3 bg-gradient-to-br from-orange-600 to-amber-600 dark:from-orange-900/70 dark:to-amber-900/60 rounded-2xl px-3 py-2 h-14 active:scale-[0.97] transition-all shadow-sm"
           >
-            <div className="w-9 h-9 bg-orange-100 dark:bg-orange-800/60 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 bg-orange-400 dark:bg-orange-800/60 rounded-lg flex items-center justify-center shrink-0">
               <span className="text-lg">🔍</span>
             </div>
             <div className="text-left">
-              <p className="text-xs font-bold text-orange-900 dark:text-orange-200 leading-snug">失踪宠物</p>
-              <p className="text-xs font-bold text-orange-900 dark:text-orange-200 leading-snug">应急广播</p>
+              <p className="text-xs font-bold text-white leading-snug">失踪宠物</p>
             </div>
           </button>
 
           {/* 救助任务板 */}
           <button
             onClick={() => {
-              if (!user) { navigate('/login'); return; }
+              if (!user) { navigate(`/login?redirect=${encodeURIComponent('/rescue-board')}`); return; }
               localStorage.setItem(RESCUE_LAST_SEEN_KEY, new Date().toISOString());
               setHasNewRescueTask(false);
               navigate('/rescue-board');
             }}
-            className="flex items-center gap-3 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/50 dark:to-cyan-900/40 border border-blue-100 dark:border-blue-700/60 rounded-2xl px-4 py-3.5 active:scale-[0.97] transition-all shadow-sm"
+            aria-label="救助协作 任务板"
+            className="flex items-center gap-3 bg-gradient-to-br from-blue-600 to-cyan-600 dark:from-blue-900/70 dark:to-cyan-900/60 rounded-2xl px-3 py-2 h-14 active:scale-[0.97] transition-all shadow-sm"
           >
-            <div className="relative w-9 h-9 bg-blue-100 dark:bg-blue-800/60 rounded-xl flex items-center justify-center shrink-0">
-              <span className="material-icons-round text-blue-600 dark:text-blue-200 text-xl">volunteer_activism</span>
+            <div className="relative w-8 h-8 bg-blue-500 dark:bg-blue-800/60 rounded-lg flex items-center justify-center shrink-0">
+              <span className="material-icons-round text-white text-xl">volunteer_activism</span>
               {hasNewRescueTask && (
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500 border border-white dark:border-zinc-900" />
               )}
             </div>
             <div className="text-left">
-              <p className="text-xs font-bold text-blue-900 dark:text-blue-200 leading-snug">救助协作</p>
-              <p className="text-xs font-bold text-blue-900 dark:text-blue-200 leading-snug">任务板</p>
+              <p className="text-xs font-bold text-white leading-snug">救助协作</p>
             </div>
           </button>
+
+          {/* 积分商店 */}
+          <button
+            onClick={() => { if (!user) { navigate(`/login?redirect=${encodeURIComponent('/points')}`); return; } navigate('/points'); }}
+            aria-label="积分商店"
+            className="flex items-center gap-3 bg-gradient-to-br from-pink-600 to-pink-700 dark:from-pink-900/75 dark:to-pink-900/65 rounded-2xl px-3 py-2 h-14 active:scale-[0.97] transition-all shadow-sm"
+          >
+            <div className="w-8 h-8 bg-pink-500 dark:bg-pink-800/60 rounded-lg flex items-center justify-center shrink-0">
+              <span className="material-icons-round text-white text-xl">stars</span>
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-white leading-snug">积分商店</p>
+            </div>
+          </button>
+        </section>
+
+        <section className="relative overflow-hidden bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-primary/20 dark:border-zinc-700 p-4">
+          <div className="absolute -top-10 -right-8 w-24 h-24 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+          <button
+            onClick={() => setPlayCenterExpanded((prev) => !prev)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <div>
+              <h2 className="text-sm font-bold text-text-main dark:text-zinc-100">成长玩法中心</h2>
+              <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-0.5">{playCenterCards.length} 个活动，进行中 {livePlayCount} 个</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-[10px] text-primary font-semibold bg-primary/15">第二批</span>
+              <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-base">{playCenterExpanded ? 'expand_less' : 'expand_more'}</span>
+            </div>
+          </button>
+
+          {playCenterExpanded && (
+            <>
+              <div className="flex items-center justify-between gap-2 mt-3 mb-3">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                  {[
+                    { key: 'all' as const, label: '全部' },
+                    { key: 'live' as const, label: '进行中' },
+                    { key: 'upcoming' as const, label: '即将开始' },
+                    { key: 'ended' as const, label: '已结束' },
+                  ].map((filter) => (
+                    <button
+                      key={filter.key}
+                      onClick={() => setPlayStatusFilter(filter.key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                        playStatusFilter === filter.key
+                          ? 'bg-primary text-black'
+                          : 'bg-background-light dark:bg-zinc-900 border border-gray-100 dark:border-zinc-700 text-gray-500 dark:text-zinc-400'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    const first = filteredPlayCenterCards[0]?.item;
+                    if (first) navigate(`${first.route}?from=play-center&anchor=activity-zone`);
+                  }}
+                  className="shrink-0 text-[11px] font-semibold text-primary"
+                >
+                  去活动页
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {filteredPlayCenterCards.map(({ item, status }) => {
+                  const countdownText = status === 'upcoming'
+                    ? `倒计时 ${formatCountdown(item.startAt, playCenterNow)}`
+                    : status === 'ended'
+                      ? '活动已结束'
+                      : `剩余 ${formatCountdown(item.endAt, playCenterNow)}`;
+
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => navigate(`${item.route}?from=play-center&anchor=activity-zone`)}
+                      className="rounded-xl border border-gray-100 dark:border-zinc-700 bg-background-light dark:bg-zinc-900 p-3 text-left active:scale-[0.97] transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                          <span className="material-icons-round text-base">{item.icon}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/15 text-primary">{item.badge}</span>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                            status === 'live'
+                              ? 'bg-emerald-500/15 text-emerald-500'
+                              : status === 'upcoming'
+                                ? 'bg-amber-500/15 text-amber-500'
+                                : status === 'ending'
+                                  ? 'bg-orange-500/15 text-orange-500'
+                                  : 'bg-zinc-500/15 text-zinc-500'
+                          }`}>{getStatusLabel(status)}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-text-main dark:text-zinc-100">{item.title}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-zinc-400 mt-1">{item.desc}</p>
+                      <p className="text-[10px] font-medium text-primary mt-2">{countdownText}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </section>
 
         {/* 推荐伙伴轮播 */}
@@ -491,22 +649,22 @@ const Home: React.FC = () => {
 
               {/* 左右箭头 */}
               {recommendedPets.length > 1 && (
-                <>
+                <div className="absolute inset-x-0 top-[42%] -translate-y-1/2 z-20 flex items-center justify-between px-3 pointer-events-none">
                   <button
                     onClick={e => { e.stopPropagation(); handleCarouselPrev(); }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center transition-all active:scale-[0.9]"
+                    className="w-9 h-9 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center transition-all active:scale-[0.9] pointer-events-auto"
                     aria-label="上一张"
                   >
                     <span className="material-icons-round text-white text-lg">chevron_left</span>
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); handleCarouselNext(); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center transition-all active:scale-[0.9]"
+                    className="w-9 h-9 bg-black/30 hover:bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center transition-all active:scale-[0.9] pointer-events-auto"
                     aria-label="下一张"
                   >
                     <span className="material-icons-round text-white text-lg">chevron_right</span>
                   </button>
-                </>
+                </div>
               )}
 
               {/* 圆点指示器 */}
@@ -533,13 +691,21 @@ const Home: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-text-main dark:text-zinc-100">新到伙伴</h2>
             <div className="flex items-center gap-2">
-              {(appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
-                <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
-                  已筛选
-                </span>
-              )}
-              {/* 视图切换按钮 */}
-              <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 gap-0.5">
+                {(appliedGender !== 'all' || appliedUrgent || debouncedKeyword.trim()) && (
+                  <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded-full">
+                    已筛选
+                  </span>
+                )}
+                {/* 筛选按钮（移动到此处，靠近“新到伙伴”标题） */}
+                <button
+                  onClick={() => setShowFilterSheet(true)}
+                  className="bg-primary rounded-xl shadow-lg shadow-primary/30 active:scale-[0.95] p-1.5 flex items-center justify-center"
+                  aria-label="筛选"
+                >
+                  <span className="material-icons-round text-white text-sm">tune</span>
+                </button>
+                {/* 视图切换按钮 */}
+                <div className="flex bg-gray-100 dark:bg-zinc-700 rounded-lg p-0.5 gap-0.5">
                 {([
                   { id: 'grid' as ViewMode, icon: 'view_module' },
                   { id: 'list' as ViewMode, icon: 'view_stream' },
@@ -621,7 +787,7 @@ const Home: React.FC = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-bold text-lg text-text-main dark:text-zinc-100 leading-tight">{pet.name}</h3>
-                        <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">{pet.breed}</p>
+                        <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1 line-clamp-2 leading-relaxed">{getFosterSummary(pet)}</p>
                       </div>
                       <span className={`material-icons-round text-lg ${pet.gender === 'female' ? 'text-pink-400' : 'text-blue-400'}`}>
                         {pet.gender}
@@ -662,7 +828,7 @@ const Home: React.FC = () => {
                           {pet.gender}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">{pet.breed}</p>
+                      <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-1 line-clamp-2 leading-relaxed">{getFosterSummary(pet)}</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="material-icons-round text-primary" style={{ fontSize: 11 }}>near_me</span>
@@ -702,7 +868,7 @@ const Home: React.FC = () => {
                     <div className="flex items-end justify-between">
                       <div>
                         <h3 className="text-xl font-bold leading-tight">{pet.name}</h3>
-                        <p className="text-sm text-gray-300 mt-0.5">{pet.breed}</p>
+                        <p className="text-xs text-gray-200 mt-1 line-clamp-2 leading-relaxed">{getFosterSummary(pet)}</p>
                       </div>
                       <span className={`material-icons-round text-xl ${pet.gender === 'female' ? 'text-pink-300' : 'text-blue-300'}`}>
                         {pet.gender}

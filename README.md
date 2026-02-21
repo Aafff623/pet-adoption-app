@@ -41,6 +41,7 @@ PetConnect 是一款基于 Web 的智能宠物平台，通过 AI 赋能打通宠
 | 🔍 **浏览 & 筛选** | 按宠物类型（狗 / 猫 / 兔 / 鸟等）、所在城市多维度筛选，支持发布/认领切换 |
 | ❤️ **收藏管理** | 一键收藏心仪宠物，随时查看收藏列表 |
 | 📋 **领养申请** | 填写姓名、年龄、职业、住房情况、养宠经验等，提交正式申请；防重提交保护 |
+| 🧾 **求领养发布** | 发布求领养需求（类型、年龄偏好、城市、联系方式），公开匹配待领养宠物 |
 | 🤖 **AI 匹配评分** | 基于 AI 模型分析领养申请与宠物需求的匹配度，自动生成评分与建议 |
 | 🎯 **领养里程碑** | 可信领养流程追踪：申请提交 → 初步审核 → 家访验证 → 试养期 → 正式通过，防止纠纷 |
 | 💬 **私信沟通** | 与送养人实时私信，支持消息记录持久化与 AI 智能回复 |
@@ -76,6 +77,14 @@ PetConnect 是一款基于 Web 的智能宠物平台，通过 AI 赋能打通宠
 | 📣 **意见反馈** | 一键提交应用体验反馈 |
 | 🔔 **通知设置** | 自定义消息推送偏好 |
 | 🔒 **隐私设置** | 数据可见性与账号安全管理 |
+
+### 🎁 积分体系
+| 功能模块 | 描述 |
+| --- | --- |
+| 🧮 **积分账户** | 查看积分余额与等级进度，关联个人成长记录 |
+| 🛍️ **积分兑换** | 积分商城兑换权益（领养优先券、健康报告券、公益抽奖等） |
+| 🤝 **积分公益捐赠** | 积分转化为公益支持，记录捐赠流向 |
+| 📜 **积分流水** | 兑换/捐赠/奖励的明细追踪，支持审计 |
 
 ---
 
@@ -148,7 +157,9 @@ VITE_DEEPSEEK_API_KEY=sk-xxxxxxxxxxxx
 
 **4. 初始化数据库**
 
-在 [Supabase Dashboard](https://supabase.com/dashboard) → SQL Editor 中依次执行：
+在 [Supabase Dashboard](https://supabase.com/dashboard) → SQL Editor 中执行以下方案之一：
+
+**方案 A（推荐）：按阶段执行**
 
 ```sql
 -- 第一步：创建基础表结构、RLS 策略、触发器
@@ -156,12 +167,13 @@ VITE_DEEPSEEK_API_KEY=sk-xxxxxxxxxxxx
 
 -- 第二步：插入示例数据（需要先有 auth 用户）
 \i supabase/seed.sql
+```
 
--- 第三步：独立功能表
-\i supabase/add_chat_messages_delete_policy.sql
-\i supabase/add_deleted_at_to_chat_messages.sql
-\i supabase/add_agent_type_to_conversations.sql
-\i supabase/add_profiles_insert_policy.sql
+**方案 B（全量快照）：一键重建**
+
+```sql
+-- master.sql 为全量快照（最后更新 2026-02-20）
+\i supabase/master.sql
 ```
 
 然后依次执行以下**增量迁移脚本**（`supabase/migrations/` 目录，建议按顺序执行）：
@@ -178,16 +190,23 @@ VITE_DEEPSEEK_API_KEY=sk-xxxxxxxxxxxx
 | `add_pet_filters_indexes.sql` | 筛选性能优化索引 | 基础功能 |
 | `upgrade_messages_model.sql` | 消息表功能增强（AI 能力） | 基础功能 |
 | `upgrade_verifications_privacy.sql` | 认证表隐私字段升级 | 基础功能 |
+| `20240901_add_agent_type_to_conversations.sql` | 会话 Agent 类型字段 | 基础功能 |
+| `20240902_add_deleted_at_to_chat_messages.sql` | 消息软删除字段 | 基础功能 |
 | `add_lost_pet_alerts.sql` | 失踪宠物广播表 + 位置索引 | **Phase 1** |
 | `add_adoption_match_scores.sql` | AI 领养匹配评分表 | **Phase 2** |
 | `add_adoption_milestones.sql` | 领养里程碑流程管理 | **Phase 3** |
 | `add_rescue_tasks.sql` | 救助协作任务表 + RLS 策略 | **Phase 4** |
 | `add_pet_health_diary.sql` | 健康日记 + AI 洞察表 | **Phase 5** |
 | `add_health_diary_storage.sql` | 健康日记图片 Storage 配置 | **Phase 5** |
+| `2026-02-21-add-adopt-requests.sql` | 求领养需求表 | **Phase 7** |
+| `2026-02-21-add-structured-location.sql` | 省市区结构化位置字段 | **Phase 7** |
+| `2026-02-21-add-points-mall.sql` | 积分账户与兑换流水 | **Phase 7** |
+| `2026-02-22-add-award-points.sql` | 积分发放函数 | **Phase 7** |
+| `2026-02-23-add-points-donations.sql` | 积分公益捐赠 | **Phase 7** |
 | `update_barnaby_image.sql` | 更新示例数据宠物图片（可选） | 数据修正 |
 
 > 💡 **Phase 6（PWA 离线救助包）** 不需要数据库迁移，仅需前端代码更新。  
-> 💡 **Phase 7（积分商城展示）** 为纯 UI 层展示，暂不入库，后续可接入真实积分系统。
+> 💡 **Phase 7（积分体系）** 已包含积分账户、兑换与捐赠数据结构，推荐执行完整迁移。
 
 > 💡 **提示**：如果是全新项目，建议按上述顺序完整执行所有脚本；如果是从旧版本迁移，只执行缺失的脚本即可。
 
@@ -228,17 +247,17 @@ npm run dev
 
 ## 🚀 创新功能路线图
 
-PetConnect 采用分阶段交付策略，逐步实现差异化功能。当前已完成 **Phase 1-3**，正在执行 **Phase 4**：
+PetConnect 采用分阶段交付策略，逐步实现差异化功能。当前已完成 **Phase 1-7**：
 
 | 阶段 | 功能名称 | 状态 | 核心价值 |
 |---|---|:---:|---|
 | **Phase 1** | 失踪宠物应急广播 | ✅ 已完成 | 基于经纬度的半径级广播，快速扩散求助信息 |
 | **Phase 2** | AI 领养匹配评分 | ✅ 已完成 | 自动分析领养申请与宠物需求的匹配度，提高领养成功率 |
 | **Phase 3** | 可信领养里程碑 | ✅ 已完成 | 标准化流程（申请→审核→家访→试养→通过），减少纠纷 |
-| **Phase 4** | 救助协作任务板 | 🔄 执行中 | 多人协同救助任务（流浪救助、医疗转运、临时寄养） |
-| **Phase 5** | AI 健康日记 | ⬜ 待执行 | 健康趋势分析、异常预警、智能喂养建议 |
-| **Phase 6** | PWA 离线救助包 | ⬜ 待执行 | 弱网环境下的应急功能可用性提升 |
-| **Phase 7** | 积分商城展示 | 🆕 新增需求 | 个人积分展示与兑换内容预览（仅 UI） |
+| **Phase 4** | 救助协作任务板 | ✅ 已完成 | 多人协同救助任务（流浪救助、医疗转运、临时寄养） |
+| **Phase 5** | AI 健康日记 | ✅ 已完成 | 健康趋势分析、异常预警、智能喂养建议 |
+| **Phase 6** | PWA 离线救助包 | ✅ 已完成 | 弱网环境下的应急功能可用性提升 |
+| **Phase 7** | 积分体系与兑换 | ✅ 已完成 | 积分账户、兑换商城、公益捐赠与激励体系 |
 
 详细设计文档见 [`docs/demand/petconnect-innovation/`](docs/demand/petconnect-innovation/)。
 
@@ -264,6 +283,7 @@ petconnect-app/
 │   │   ├── adoption.ts      # 领养申请（防重提交）
 │   │   ├── adoptionMatch.ts # AI 领养匹配评分
 │   │   ├── adoptionMilestones.ts  # 领养里程碑状态管理
+|   │   ├── adoptRequests.ts # 求领养需求
 │   │   ├── followUps.ts     # 领养回访任务 + 自动生成
 │   │   ├── lostAlerts.ts    # 失踪宠物发布 & 搜索
 │   │   ├── rescueTasks.ts   # 救助任务发布、认领、完成
@@ -287,11 +307,15 @@ petconnect-app/
 │   │   ├── autoReply.ts     # 自动回复模板
 │   │   ├── date.ts          # 日期格式化工具
 │   │   └── storage.ts       # Supabase Storage 上传
+|   ├── offline/
+|   │   ├── cache.ts         # 离线缓存与 TTL 管理
+|   │   └── syncQueue.ts     # 离线队列与重试同步
 │   └── supabase.ts          # Supabase 客户端初始化
 ├── pages/                   # 页面级组件（与路由一一对应）
 │   ├── Home.tsx             # 首页（宠物列表 + 筛选 + 发布/认领切换）
 │   ├── PetDetail.tsx        # 宠物详情 + 成长日志展示
 │   ├── PublishPet.tsx       # 发布宠物
+|   ├── PublishAdoptRequest.tsx # 发布求领养
 │   ├── AdoptionForm.tsx     # 领养申请表单
 │   ├── AdoptionProgress.tsx # 我的领养申请进度
 │   ├── MyPets.tsx           # 我的宠物（已领养 + 已发布）
@@ -304,6 +328,13 @@ petconnect-app/
 │   ├── Favorites.tsx        # 收藏列表
 │   ├── Messages.tsx         # 消息列表（会话 + 系统通知）
 │   ├── ChatDetail.tsx       # 私信对话（支持 AI 智能回复）
+│   ├── Points.tsx           # 积分中心
+│   ├── RedeemAdoptionPriority.tsx # 领养优先券兑换
+│   ├── RedeemCommunityPass.tsx    # 社群优先卡兑换
+│   ├── RedeemHealthReport.tsx     # AI 健康报告兑换
+│   ├── RedeemHospitalCheckup.tsx  # 医院体检券兑换
+│   ├── RedeemLuckyDraw.tsx        # 公益抽奖券兑换
+│   ├── RedeemMerchPack.tsx        # 周边礼包兑换
 │   ├── Profile.tsx          # 个人资料
 │   ├── Verification.tsx     # 实名认证
 │   ├── Settings.tsx         # 设置中心
@@ -320,21 +351,29 @@ petconnect-app/
 │   ├── PrivacyPolicy.tsx    # 隐私政策
 │   └── Login.tsx            # 登录 / 注册
 ├── supabase/                # 数据库脚本
+│   ├── master.sql           # 全库一键重建快照
 │   ├── schema.sql           # 基础表结构 + RLS 策略 + 触发器
 │   ├── seed.sql             # 示例数据（宠物、用户等）
 │   ├── storage_policies.sql # Storage Bucket 上传策略
-│   ├── add_*.sql            # 独立功能表（消息、认证等）
 │   └── migrations/          # 增量迁移脚本（按 Phase 顺序执行）
 │       ├── add_pet_logs.sql              # 宠物成长日志
 │       ├── add_pet_logs_update_policy.sql
 │       ├── add_follow_up_tasks.sql       # 领养回访任务
 │       ├── add_follow_up_template_key.sql
 │       ├── add_reports_blocks.sql        # 举报 & 屏蔽
+│       ├── 20240901_add_agent_type_to_conversations.sql
+│       ├── 20240902_add_deleted_at_to_chat_messages.sql
 │       ├── add_lost_pet_alerts.sql       # 失踪宠物（Phase 1）
 │       ├── add_adoption_match_scores.sql # AI 匹配评分（Phase 2）
 │       ├── add_adoption_milestones.sql   # 领养里程碑（Phase 3）
 │       ├── add_rescue_tasks.sql          # 救助任务（Phase 4）
 │       ├── add_pet_health_diary.sql      # 健康日记（Phase 5）
+│       ├── add_health_diary_storage.sql  # 健康日记图片
+│       ├── 2026-02-21-add-adopt-requests.sql
+│       ├── 2026-02-21-add-structured-location.sql
+│       ├── 2026-02-21-add-points-mall.sql
+│       ├── 2026-02-22-add-award-points.sql
+│       ├── 2026-02-23-add-points-donations.sql
 │       ├── add_more_pet_categories_and_seed_data.sql
 │       ├── add_pet_filters_indexes.sql   # 性能优化索引
 │       ├── upgrade_messages_model.sql    # 消息表增强
@@ -999,68 +1038,40 @@ Hash 路由无需服务端配置，能直接部署到任意静态托管平台（
 
 ## 📊 项目统计
 
-- **代码库**：~30 页面组件 + 19 API 模块
-- **数据库**：16+ 迁移脚本，涵盖 6 大创新功能模块
+- **代码库**：35+ 页面组件 + 20+ API 模块
+- **数据库**：20+ 迁移脚本，涵盖积分体系与求领养能力
 - **AI 能力**：支持 3 种主流 LLM 提供商
 - **开发周期**：分 7 个 Phase 迭代交付
 
 ---
 
-## � 更新日志
+## 📝 更新日志
 
-### 🎉 v0.4.0 - Phase 4-7 创新功能交付（2026-02-20）
+### 🎉 v0.5.0 - 积分体系与求领养增强（2026-02-23）
 
-本次更新完成了 PetConnect 创新路线图的最后四个阶段，全面增强了救助协作、健康管理、离线能力和用户激励体系。
+本次更新完善积分体系与求领养流程，补齐积分发放、兑换与公益捐赠闭环。
 
 #### ✨ 新增功能
 
-**Phase 4 - 救助协作任务板**
-- ✅ 新增救助任务发布、认领、完成反馈流程
-- ✅ 支持任务类型：喂养、送医、接送、临时寄养、物资采购
-- ✅ 实时任务状态管理（待接单 / 进行中 / 已完成 / 已取消）
-- ✅ 多人协同执行机制，可设置人数上限
-- 📄 新增文件：`lib/api/rescueTasks.ts`、`pages/RescueBoard.tsx`、`pages/RescueTaskDetail.tsx`
-- 🗄️ 数据库：`supabase/migrations/add_rescue_tasks.sql`
+- **积分商城与兑换**：新增积分中心与多种兑换场景（优先券、健康报告、公益抽奖、周边礼包等）
+- **积分发放与捐赠**：支持积分奖励与公益捐赠记录，统一流水可追踪
+- **求领养发布**：新增求领养发布与公开展示，匹配更多领养机会
+- **结构化地址**：统一省市区字段，提升筛选与检索准确度
 
-**Phase 5 - AI 健康日记**
-- ✅ 结构化健康记录（心情、食欲、精力、睡眠、体重、症状）
-- ✅ AI 自动分析 7 天 / 30 天健康趋势
-- ✅ 异常提醒与喂养建议
-- ✅ 健康洞察历史记录
-- 📄 新增文件：`lib/api/healthDiary.ts`、`lib/api/healthInsights.ts`、`pages/PetHealthDiary.tsx`
-- 🗄️ 数据库：`supabase/migrations/add_pet_health_diary.sql`、`add_health_diary_storage.sql`
+#### 🗄️ 数据库迁移
 
-**Phase 6 - PWA 离线救助包**
-- ✅ 失踪警报与救助任务离线缓存（12 小时有效期）
-- ✅ 离线操作队列（认领 / 完成 / 取消任务），联网后自动同步
-- ✅ 全局网络状态 Banner（离线提示 / 同步中 / 成功 / 失败重试）
-- ✅ Service Worker 缓存策略增强（Supabase REST + Storage）
-- 📄 新增文件：`lib/offline/cache.ts`、`lib/offline/syncQueue.ts`、`components/NetworkBanner.tsx`
-- ⚙️ 修改：`vite.config.ts`（workbox runtimeCaching）、`pages/LostAlerts.tsx`、`pages/RescueBoard.tsx`
-
-**Phase 7 - 积分商城展示（仅 UI）**
-- ✅ Profile 页新增积分卡片，实时计算可用积分（已领养 × 200 + 申请中 × 30 + 关注 × 10）
-- ✅ 可兑换内容预览（领养优先券、AI 健康报告券、公益周边抽奖券）
-- ✅ Messages 页新增 AI 评估报告送达弹窗提示（4.5 秒自动消失）
-- ✅ AdoptionForm 提交后 10 秒自动推送评估报告到系统消息
-- ⚙️ 修改：`pages/Profile.tsx`、`pages/Messages.tsx`、`pages/AdoptionForm.tsx`
-
-#### 🔧 技术优化
-- 统一规范化 SQL 迁移脚本命名（`supabase/migrations/` 目录）
-- 优化离线场景用户体验，支持弱网救助
-- 增强 PWA 缓存策略，图片与 API 分级缓存
-
-#### 📊 项目里程碑
-- ✅ 全部 7 个创新 Phase 已完成交付
-- ✅ 构建通过（`npm run build`），无 Breaking Changes
-- 📦 新增代码：4075+ 行
-- 🗄️ 数据库迁移：新增 2 个表（救助任务、健康日记）
+- `2026-02-21-add-adopt-requests.sql`
+- `2026-02-21-add-structured-location.sql`
+- `2026-02-21-add-points-mall.sql`
+- `2026-02-22-add-award-points.sql`
+- `2026-02-23-add-points-donations.sql`
 
 ---
 
-## �📄 许可证
+## 📄 许可证
 
 本项目基于 [MIT License](LICENSE) 开源。
+
 ---
 
 ## 🙏 致谢

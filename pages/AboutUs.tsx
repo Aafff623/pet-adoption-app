@@ -1,11 +1,23 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const APP_VERSION = '1.0.0';
 const BUILD_NUMBER = '20260218';
 
 const AboutUs: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const activityAnchorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldScroll = params.get('from') === 'play-center' || params.get('anchor') === 'activity-zone';
+    if (!shouldScroll) return;
+    const timer = window.setTimeout(() => {
+      activityAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [location.search]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -55,7 +67,7 @@ const AboutUs: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div ref={activityAnchorRef} className="grid grid-cols-2 gap-3">
           {teamFeatures.map(feature => (
             <div
               key={feature.label}

@@ -27,6 +27,30 @@ const isRefinedScore = (score: AdoptionMatchScore | null): boolean => {
   return source === 'ai_refined_v1';
 };
 
+const buildDefaultFosterLogs = (pet: Pet): PetLog[] => {
+  const now = Date.now();
+  const fosterName = pet.fosterParent?.name ?? '寄养家庭';
+  const title = pet.name || '这只毛孩子';
+  return [
+    {
+      id: `${pet.id}-foster-log-1`,
+      petId: pet.id,
+      authorId: pet.userId ?? 'foster',
+      content: `${fosterName}吐槽：${title}最近半夜会主动来蹭人求关注，闹钟还没响就先被它叫醒了。`,
+      imageUrl: '',
+      createdAt: new Date(now - 36 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: `${pet.id}-foster-log-2`,
+      petId: pet.id,
+      authorId: pet.userId ?? 'foster',
+      content: `${fosterName}吐槽：吃饭很积极但挑食，罐头打开慢一点就会坐在旁边盯着你看，主打一个催饭监督。`,
+      imageUrl: '',
+      createdAt: new Date(now - 12 * 60 * 60 * 1000).toISOString(),
+    },
+  ];
+};
+
 const PetDetail: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -197,6 +221,7 @@ const PetDetail: React.FC = () => {
   };
 
   const canPostPetLog = Boolean(user && userApplication?.status === 'approved');
+  const displayPetLogs = pet ? (petLogs.length > 0 ? petLogs : buildDefaultFosterLogs(pet)) : petLogs;
 
   if (loading) {
     return (
@@ -233,16 +258,6 @@ const PetDetail: React.FC = () => {
             aria-label="返回上一页"
           >
             <span className="material-icons-round text-2xl">arrow_back</span>
-          </button>
-          <button
-            onClick={handleFavoriteToggle}
-            disabled={favoriteLoading}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-black/20 backdrop-blur-md hover:bg-black/30 transition-colors group pointer-events-auto active:scale-95 cursor-pointer disabled:opacity-50 ripple-container"
-            aria-label={isFavorited ? '取消收藏' : '收藏'}
-          >
-            <span className={`material-icons-round text-2xl ${isFavorited ? 'text-red-500' : 'group-hover:text-red-500 transition-colors'}`}>
-              {isFavorited ? 'favorite' : 'favorite_border'}
-            </span>
           </button>
           <button
             onClick={() => setShowReportSheet(true)}
@@ -429,7 +444,7 @@ const PetDetail: React.FC = () => {
           {petLogsLoading ? (
             <div className="text-sm text-gray-500 dark:text-zinc-400">日志加载中...</div>
           ) : (
-            <PetLogTimeline logs={petLogs} />
+            <PetLogTimeline logs={displayPetLogs} emptyText="暂无寄养家庭吐槽日志" />
           )}
         </div>
       </div>
@@ -446,6 +461,20 @@ const PetDetail: React.FC = () => {
             <span className="material-icons-round text-primary text-2xl animate-spin">refresh</span>
           ) : (
             <span className="material-icons-round text-gray-400 dark:text-zinc-500 group-hover:text-primary text-2xl transition-colors">chat_bubble_outline</span>
+          )}
+        </button>
+        <button
+          onClick={handleFavoriteToggle}
+          disabled={favoriteLoading}
+          className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gray-50 dark:bg-zinc-800 hover:bg-gray-100 dark:hover:bg-zinc-700 flex items-center justify-center border border-gray-200 dark:border-zinc-600 transition-colors group disabled:opacity-50 ripple-container"
+          aria-label={isFavorited ? '取消收藏' : '收藏'}
+        >
+          {favoriteLoading ? (
+            <span className="material-icons-round text-primary text-2xl animate-spin">refresh</span>
+          ) : (
+            <span className={`material-icons-round text-2xl ${isFavorited ? 'text-red-500' : 'text-gray-400 dark:text-zinc-500 group-hover:text-red-500 transition-colors'}`}>
+              {isFavorited ? 'favorite' : 'favorite_border'}
+            </span>
           )}
         </button>
         {userApplication?.status === 'approved' || pet.status === 'adopted' ? (

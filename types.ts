@@ -73,6 +73,7 @@ export interface UserProfile {
   city?: string;
   province?: string;
   cityName?: string;
+  points: number;
   followingCount: number;
   applyingCount: number;
   adoptedCount: number;
@@ -136,7 +137,15 @@ export interface Verification {
 // ============================================================
 // 会话类型
 // ============================================================
-export type AgentType = 'pet_expert' | 'emotional_counselor';
+export type AgentType =
+  | 'pet_expert'
+  | 'emotional_counselor'
+  | 'adoption_advisor'
+  | 'behavior_trainer'
+  | 'medical_assistant'
+  | 'nutrition_coach'
+  | 'rescue_coordinator'
+  | 'newbie_guardian';
 
 export interface Conversation {
   id: string;
@@ -396,6 +405,44 @@ export interface PetHealthDiary {
   imageUrl?: string | null;
   recordedAt: string;
   createdAt: string;
+}
+
+// ============================================================
+// 积分等级与任务
+// ============================================================
+export interface PointTaskDefinition {
+  key: string;
+  title: string;
+  description: string;
+  points: number;
+  badge: string;
+  limitLabel: string;
+  limitCount: number;
+  windowDays: number;
+  periodLabel: string;
+}
+
+export interface PointTaskProgress {
+  key: string;
+  completed: number;
+  limit: number;
+  lastCompletedAt: string | null;
+}
+
+export interface PointsLevelInfo {
+  key: 'bronze' | 'silver' | 'gold';
+  label: string;
+  description: string;
+  minPoints: number;
+  accent: string;
+  icon: string;
+}
+
+export interface PointsLevelState {
+  current: PointsLevelInfo;
+  next?: PointsLevelInfo;
+  progress: number;
+  pointsToNext: number;
 }
 
 export type HealthRiskLevel = 'low' | 'medium' | 'high';

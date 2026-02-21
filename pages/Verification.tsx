@@ -84,24 +84,24 @@ const Verification: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background-light flex items-center justify-center fade-in">
+      <div className="min-h-screen bg-background-light dark:bg-zinc-900 flex items-center justify-center fade-in">
         <span className="material-icons text-[#60e750] text-4xl animate-spin">refresh</span>
       </div>
     );
   }
 
   return (
-    <div className="bg-background-light min-h-screen flex flex-col fade-in">
-      <header className="px-4 py-4 flex items-center bg-white shadow-sm sticky top-0 z-50">
-        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="返回">
-          <span className="material-icons-round text-2xl text-gray-700">arrow_back</span>
+    <div className="bg-background-light dark:bg-zinc-900 min-h-screen flex flex-col fade-in">
+      <header className="px-4 py-4 flex items-center bg-white dark:bg-zinc-800 shadow-sm sticky top-0 z-50 border-b border-gray-100 dark:border-zinc-700">
+        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors" aria-label="返回">
+          <span className="material-icons-round text-2xl text-gray-700 dark:text-zinc-300">arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold text-gray-900 ml-2">实名认证</h1>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-zinc-100 ml-2">实名认证</h1>
       </header>
 
       <main className="p-6 space-y-6">
         {successMsg && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl text-sm text-green-700 dark:text-green-300">
             {successMsg}
           </div>
         )}
@@ -133,18 +133,18 @@ const Verification: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                <span className="text-gray-500">真实姓名</span>
-                <span className="font-medium text-gray-900">{maskName(verification.realName)}</span>
+            <div className="bg-white dark:bg-zinc-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-zinc-700 space-y-4">
+              <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-zinc-700">
+                <span className="text-gray-500 dark:text-zinc-400">真实姓名</span>
+                <span className="font-medium text-gray-900 dark:text-zinc-100">{maskName(verification.realName)}</span>
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                <span className="text-gray-500">证件类型</span>
-                <span className="font-medium text-gray-900">{verification.idType}</span>
+              <div className="flex justify-between items-center py-2 border-b border-gray-50 dark:border-zinc-700">
+                <span className="text-gray-500 dark:text-zinc-400">证件类型</span>
+                <span className="font-medium text-gray-900 dark:text-zinc-100">{verification.idType}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-gray-500">证件号码</span>
-                <span className="font-medium text-gray-900">{maskIdDisplay(verification.idNumberLast4, verification.idNumber)}</span>
+                <span className="text-gray-500 dark:text-zinc-400">证件号码</span>
+                <span className="font-medium text-gray-900 dark:text-zinc-100">{maskIdDisplay(verification.idNumberLast4, verification.idNumber)}</span>
               </div>
             </div>
 
@@ -168,13 +168,13 @@ const Verification: React.FC = () => {
             </div>
 
             {errorMsg && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-600 dark:text-red-300">
                 {errorMsg}
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1.5 ml-1" htmlFor="realName">
+              <label className="block text-sm font-medium text-gray-500 dark:text-zinc-400 mb-1.5 ml-1" htmlFor="realName">
                 真实姓名<span className="text-red-500">*</span>
               </label>
               <input
@@ -183,17 +183,17 @@ const Verification: React.FC = () => {
                 placeholder="请输入真实姓名"
                 value={realName}
                 onChange={e => setRealName(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#60e750]"
+                className="w-full px-4 py-3 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-900 dark:text-zinc-100 outline-none focus:border-[#60e750]"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1.5 ml-1">证件类型</label>
+              <label className="block text-sm font-medium text-gray-500 dark:text-zinc-400 mb-1.5 ml-1">证件类型</label>
               <select
                 value={idType}
                 onChange={e => setIdType(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#60e750]"
+                className="w-full px-4 py-3 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-900 dark:text-zinc-100 outline-none focus:border-[#60e750]"
               >
                 <option>居民身份证</option>
                 <option>港澳居民来往内地通行证</option>
@@ -203,7 +203,7 @@ const Verification: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1.5 ml-1" htmlFor="idNumber">
+              <label className="block text-sm font-medium text-gray-500 dark:text-zinc-400 mb-1.5 ml-1" htmlFor="idNumber">
                 证件号码<span className="text-red-500">*</span>
               </label>
               <input
@@ -212,7 +212,7 @@ const Verification: React.FC = () => {
                 placeholder="请输入证件号码"
                 value={idNumber}
                 onChange={e => setIdNumber(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#60e750]"
+                className="w-full px-4 py-3 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl text-sm text-gray-900 dark:text-zinc-100 outline-none focus:border-[#60e750]"
                 required
               />
             </div>

@@ -50,6 +50,9 @@ const ChatDetail: React.FC = () => {
   const formRef = useRef<HTMLFormElement | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const lastAiReplyTimeRef = useRef<number | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -201,7 +204,7 @@ const ChatDetail: React.FC = () => {
         // 只在最后一段后触发 AI 回复
         if (segment.isLastSegment) {
           const agentType = conversation?.agentType;
-          const isAIConv = agentType === 'pet_expert' || agentType === 'emotional_counselor';
+          const isAIConv = Boolean(agentType);
 
           if (isAIConv && agentType) {
             const delayMs = 80 + Math.random() * 60;
@@ -260,6 +263,35 @@ const ChatDetail: React.FC = () => {
     }
 
     setSending(false);
+  };
+
+  const handleSelectImage = (file: File | undefined) => {
+    if (!file) return;
+    setInputMessage((prev) => {
+      const prefix = prev.trim() ? `${prev.trim()}\n` : '';
+      return `${prefix}[图片] ${file.name}`;
+    });
+    setShowAttachPanel(false);
+    showToast('已添加图片，请发送消息完成上传占位');
+  };
+
+  const handleSelectFile = (file: File | undefined) => {
+    if (!file) return;
+    setInputMessage((prev) => {
+      const prefix = prev.trim() ? `${prev.trim()}\n` : '';
+      return `${prefix}[文件] ${file.name}`;
+    });
+    setShowAttachPanel(false);
+    showToast('已添加文件，请发送消息完成上传占位');
+  };
+
+  const handleInsertLocation = () => {
+    setInputMessage((prev) => {
+      const prefix = prev.trim() ? `${prev.trim()}\n` : '';
+      return `${prefix}[位置] 待发送定位信息`;
+    });
+    setShowAttachPanel(false);
+    showToast('已插入位置占位，请补充具体地址后发送');
   };
 
   if (loading) {
@@ -364,6 +396,36 @@ const ChatDetail: React.FC = () => {
       </main>
 
       <footer className="bg-white dark:bg-zinc-800 px-4 py-3 border-t border-gray-100 dark:border-zinc-700 sticky bottom-0 z-50">
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="sr-only"
+          onChange={(e) => {
+            handleSelectImage(e.target.files?.[0]);
+            e.currentTarget.value = '';
+          }}
+        />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={(e) => {
+            handleSelectImage(e.target.files?.[0]);
+            e.currentTarget.value = '';
+          }}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="sr-only"
+          onChange={(e) => {
+            handleSelectFile(e.target.files?.[0]);
+            e.currentTarget.value = '';
+          }}
+        />
         <form ref={formRef} onSubmit={handleSendMessage} className="flex items-center gap-2">
           <button
             type="button"
@@ -403,16 +465,16 @@ const ChatDetail: React.FC = () => {
         <div className="bg-white dark:bg-zinc-800 border-t border-gray-100 dark:border-zinc-700 px-6 py-5 sticky bottom-0 z-40">
           <div className="grid grid-cols-4 gap-4">
             {[
-              { icon: 'camera_alt', label: '拍照', color: 'bg-blue-50 text-blue-500' },
-              { icon: 'photo_library', label: '相册', color: 'bg-green-50 text-green-500' },
-              { icon: 'attach_file', label: '文件', color: 'bg-orange-50 text-orange-500' },
-              { icon: 'location_on', label: '位置', color: 'bg-red-50 text-red-500' },
+              { icon: 'camera_alt', label: '拍照', color: 'bg-blue-50 text-blue-500', action: () => cameraInputRef.current?.click() },
+              { icon: 'photo_library', label: '相册', color: 'bg-green-50 text-green-500', action: () => imageInputRef.current?.click() },
+              { icon: 'attach_file', label: '文件', color: 'bg-orange-50 text-orange-500', action: () => fileInputRef.current?.click() },
+              { icon: 'location_on', label: '位置', color: 'bg-red-50 text-red-500', action: handleInsertLocation },
             ].map(item => (
               <button
                 key={item.icon}
                 type="button"
                 onClick={() => {
-                  setShowAttachPanel(false);
+                  item.action();
                 }}
                 className="flex flex-col items-center gap-2 active:scale-95 transition-transform"
               >

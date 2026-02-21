@@ -8,6 +8,7 @@ const BottomNav: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [hasUnread, setHasUnread] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -18,7 +19,7 @@ const BottomNav: React.FC = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-lg border-t border-gray-200 dark:border-zinc-700 pb-6 pt-2 z-50">
-      <div className="flex justify-around items-center max-w-lg mx-auto">
+      <div className="flex justify-around items-center max-w-lg mx-auto relative">
         <button
           onClick={() => navigate('/')}
           className="flex flex-col items-center p-2 group w-16"
@@ -42,6 +43,17 @@ const BottomNav: React.FC = () => {
           </div>
           <span className={`text-[10px] font-medium ${isActive('/favorites') ? 'text-primary' : 'text-gray-500 dark:text-zinc-400'}`}>收藏</span>
         </button>
+
+        {/* Center + button */}
+        <div className="w-16 flex items-center justify-center">
+          <button
+            onClick={() => setShowPlusMenu(v => !v)}
+            aria-label="发布"
+            className="relative -mt-6 w-14 h-14 rounded-full bg-white dark:bg-zinc-800 flex items-center justify-center shadow-lg border border-gray-100 dark:border-zinc-700 transition-transform active:scale-[0.97]"
+          >
+            <span className="material-icons-round text-3xl text-pink-500">add</span>
+          </button>
+        </div>
 
         <button
           onClick={() => navigate('/messages')}
@@ -70,6 +82,42 @@ const BottomNav: React.FC = () => {
           <span className={`text-[10px] font-medium ${isActive('/profile') ? 'text-primary' : 'text-gray-500 dark:text-zinc-400'}`}>我的</span>
         </button>
       </div>
+
+      {/* Plus menu sheet */}
+      {showPlusMenu && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-60 flex items-end justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPlusMenu(false); }}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-full max-w-md p-4 pb-6">
+            <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-zinc-700">
+              <button
+                onClick={() => { setShowPlusMenu(false); navigate('/publish-pet'); }}
+                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              >
+                <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-primary/20 flex items-center justify-center text-primary">
+                  <span className="material-icons-round">add_circle_outline</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200">发布送养</span>
+                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+              </button>
+              <button
+                onClick={() => { setShowPlusMenu(false); navigate('/publish-adopt-request'); }}
+                className="w-full flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-zinc-700"
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500">
+                  <span className="material-icons-round">pets</span>
+                </div>
+                <span className="font-medium text-gray-800 dark:text-zinc-200">发布求领养</span>
+                <span className="ml-auto material-icons-round text-gray-300 dark:text-zinc-500">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };

@@ -5,6 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { submitAdoptionApplication, fetchUserApplicationForPet } from '../lib/api/adoption';
 import { getOrCreateSystemConversation, insertSystemReply } from '../lib/api/messages';
 import { fetchPetById } from '../lib/api/pets';
+import { fetchVerification } from '../lib/api/verification';
 import { generateAndSaveMatchScore, fetchMatchScore } from '../lib/api/adoptionMatch';
 import type { AdoptionMatchScore, MatchQuestionnaire } from '../types';
 import type { Pet } from '../types';
@@ -308,6 +309,14 @@ const AdoptionForm: React.FC = () => {
       navigate('/login');
       return;
     }
+
+    const verification = await fetchVerification(user.id).catch(() => null);
+    if (!verification || verification.status !== 'approved') {
+      showToast('提交收养申请前需要先完成实名认证');
+      navigate(`/verification?redirect=${encodeURIComponent(`/adopt?petId=${petId}`)}`);
+      return;
+    }
+
     if (!petId) {
       setErrorMsg('未指定要申请的宠物，请返回重新选择');
       return;

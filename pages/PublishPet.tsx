@@ -5,10 +5,13 @@ import { useToast } from '../contexts/ToastContext';
 import LocationPicker, { formatLocationDisplay, type LocationOption } from '../components/LocationPicker';
 import { DEFAULT_LOCATION, parseLocationDisplay } from '../lib/data/regions';
 import { addPet } from '../lib/api/pets';
+import { fetchVerification } from '../lib/api/verification';
 import { enhancedButtonClick } from '../lib/utils/interactions';
+import { uploadImage } from '../lib/utils/storage';
 
 type PetCategory = 'dog' | 'cat' | 'rabbit' | 'bird' | 'hamster' | 'turtle' | 'fish' | 'other';
 type PetGender = 'male' | 'female';
+type RantTemplate = 'gentle' | 'funny';
 
 const CATEGORIES: { id: PetCategory; label: string; icon: string }[] = [
   { id: 'dog', label: '狗狗', icon: '🐶' },
@@ -20,6 +23,30 @@ const CATEGORIES: { id: PetCategory; label: string; icon: string }[] = [
   { id: 'fish', label: '鱼类', icon: '🐟' },
   { id: 'other', label: '其他', icon: '🐾' },
 ];
+
+const buildRantTemplate = (template: RantTemplate, input: {
+  petName: string;
+  breed: string;
+  ageText: string;
+  fosterName: string;
+}): { description: string; story: string } => {
+  const petName = input.petName || '这只毛孩子';
+  const breed = input.breed || '小可爱';
+  const ageText = input.ageText || '未知年龄';
+  const fosterName = input.fosterName || '寄养家庭';
+
+  if (template === 'funny') {
+    return {
+      description: `${fosterName}吐槽：${petName}是家里“戏精担当”，社交满分、撒娇超标。`,
+      story: `${fosterName}吐槽日志（搞笑版）：\n1）${petName}（${breed}，${ageText}）每天定点催饭，开粮桶声一响立刻冲到餐位。\n2）散步时遇到路人会主动营业，尾巴摇到停不下来。\n3）睡前必须来一轮“贴贴巡逻”，确认你在身边才肯安心入睡。\n\n总体评价：有点闹腾，但超级亲人，属于越相处越上头的类型。`,
+    };
+  }
+
+  return {
+    description: `${fosterName}记录：${petName}性格温和亲人，作息稳定，适合长期陪伴。`,
+    story: `${fosterName}成长记录（温柔版）：\n${petName}是${breed}，目前${ageText}。在寄养期间表现稳定，吃饭和休息规律，能较快适应家庭节奏。\n\n它对人友善，互动时会主动靠近，情绪也比较平稳。若你正在寻找一位温柔、可陪伴的家庭成员，${petName}会是很好的选择。`,
+  };
+};
 
 const PublishPet: React.FC = () => {
   const navigate = useNavigate();
@@ -37,13 +64,48 @@ const PublishPet: React.FC = () => {
   const [weight, setWeight] = useState('');
   const [description, setDescription] = useState('');
   const [story, setStory] = useState('');
+  const [rantTemplate, setRantTemplate] = useState<RantTemplate>('gentle');
   const [isUrgent, setIsUrgent] = useState(false);
   const [price, setPrice] = useState('0');
   const [tagsInput, setTagsInput] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleChooseFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('请选择图片文件（JPG、PNG 等）');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      showToast('图片不能超过 5MB');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      const publicUrl = await uploadImage('pet-photos', user.id, file);
+      setImageUrl(publicUrl);
+      showToast('图片上传成功');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '上传失败';
+      showToast(msg.includes('Bucket') || msg.includes('bucket') ? '请先为 Storage 创建 pet-photos bucket 并配置策略' : `上传失败：${msg}`);
+    } finally {
+      setImageUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (!profile?.city) return;
@@ -59,6 +121,14 @@ const PublishPet: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    const verification = await fetchVerification(user.id).catch(() => null);
+    if (!verification || verification.status !== 'approved') {
+      showToast('发布宠物前需要先完成实名认证');
+      navigate(`/verification?redirect=${encodeURIComponent('/publish-pet')}`);
+      return;
+    }
+
     if (!name.trim()) { showToast('请填写宠物名称'); return; }
     if (!breed.trim()) { showToast('请填写品种'); return; }
     if (!ageText.trim()) { showToast('请填写年龄'); return; }
@@ -109,6 +179,20 @@ const PublishPet: React.FC = () => {
     }
   };
 
+  const handleGenerateRantTemplate = () => {
+    const generated = buildRantTemplate(rantTemplate, {
+      petName: name.trim(),
+      breed: breed.trim(),
+      ageText: ageText.trim(),
+      fosterName: profile?.nickname ?? '寄养家庭',
+    });
+    if (!description.trim()) {
+      setDescription(generated.description);
+    }
+    setStory(generated.story);
+    showToast('已生成吐槽模板，可按需微调后提交');
+  };
+
   return (
     <div className="bg-background-light dark:bg-zinc-900 min-h-screen fade-in">
       <header className="px-4 py-4 flex items-center bg-white dark:bg-zinc-800 shadow-sm sticky top-0 z-50">
@@ -150,7 +234,17 @@ const PublishPet: React.FC = () => {
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
           )}
-          <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" aria-hidden />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleChooseFile}
+              className="px-4 py-2 bg-gray-100 dark:bg-zinc-700 rounded-full text-sm text-gray-700 dark:text-zinc-200"
+            >
+              {imageUploading ? '上传中...' : '上传图片'}
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" aria-hidden onChange={handleFileChange} />
+            <span className="text-xs text-gray-400">或粘贴图片 URL</span>
+          </div>
         </div>
 
         {/* 基本信息 */}
@@ -232,16 +326,23 @@ const PublishPet: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-2">
             <label className="block text-xs text-gray-500 dark:text-zinc-400 mb-1.5">
               所在城市 <span className="text-red-500">*</span>
             </label>
+            <button
+              type="button"
+              onClick={() => setShowLocationPicker(true)}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-zinc-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-zinc-100 outline-none text-left flex items-center justify-between"
+            >
+              <span>{formatLocationDisplay(locationOption)}</span>
+              <span className="material-icons-round text-gray-400 dark:text-zinc-500 text-lg">expand_more</span>
+            </button>
             <input
               type="text"
-              placeholder="如：上海市静安区"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-              required
+              placeholder="填写小区/街道（选填）"
+              value={locationDetail}
+              onChange={e => setLocationDetail(e.target.value)}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-zinc-700 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500 outline-none"
             />
           </div>
@@ -287,6 +388,38 @@ const PublishPet: React.FC = () => {
         {/* 描述与故事 */}
         <div className="bg-white dark:bg-zinc-800 rounded-2xl p-4 space-y-4 border border-gray-50 dark:border-zinc-700">
           <h2 className="text-sm font-bold text-gray-800 dark:text-zinc-100">描述与故事</h2>
+
+          <div className="rounded-xl border border-primary/20 dark:border-zinc-700 bg-gradient-to-br from-pink-50/70 to-white dark:from-zinc-900 dark:to-zinc-800 px-3 py-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-600 dark:text-zinc-300">成长日志吐槽模板</p>
+              <button
+                type="button"
+                onClick={handleGenerateRantTemplate}
+                className="text-xs font-semibold text-primary"
+              >
+                一键生成
+              </button>
+            </div>
+            <div className="flex gap-2">
+              {([
+                { key: 'gentle' as const, label: '温柔版' },
+                { key: 'funny' as const, label: '搞笑版' },
+              ]).map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setRantTemplate(item.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    rantTemplate === item.key
+                      ? 'bg-primary text-black'
+                      : 'bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-zinc-400'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs text-gray-500 dark:text-zinc-400 mb-1.5">
@@ -369,6 +502,13 @@ const PublishPet: React.FC = () => {
           </button>
         </div>
       </form>
+
+      <LocationPicker
+        open={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        value={locationOption}
+        onChange={setLocationOption}
+      />
     </div>
   );
 };

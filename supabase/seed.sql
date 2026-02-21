@@ -4,6 +4,15 @@
 -- 依赖：auth.users 中至少有一个用户时，才会插入收藏/申请/会话/认证等数据
 -- ============================================================
 
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS email TEXT;
+
+UPDATE public.profiles p
+SET email = u.email
+FROM auth.users u
+WHERE p.id = u.id
+  AND (p.email IS NULL OR p.email = '');
+
 -- ============================================================
 -- 1. feedback 意见反馈（匿名，无需用户）
 -- ============================================================
@@ -217,6 +226,143 @@ FROM
     )
   ) AS v(title, task_type, description, location_text, latitude, longitude, window_start, window_end, max_assignees)
 WHERE u.id IS NOT NULL;
+
+-- ============================================================
+-- 9. profiles 回填（确保 auth.users 注册账号在 profiles 中可见）
+-- ============================================================
+INSERT INTO public.profiles (id, nickname, avatar_url, bio, city)
+SELECT
+  u.id,
+  COALESCE(NULLIF(u.raw_user_meta_data->>'nickname', ''), split_part(u.email, '@', 1), '宠物爱好者'),
+  COALESCE(u.raw_user_meta_data->>'avatar_url', ''),
+  '',
+  ''
+FROM auth.users u
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.profiles p WHERE p.id = u.id
+);
+
+UPDATE public.profiles p
+SET email = u.email
+FROM auth.users u
+WHERE p.id = u.id
+  AND (p.email IS NULL OR p.email = '');
+
+-- ============================================================
+-- 10. profiles 用户资料补充（为前 4 个测试账号补充昵称与画像）
+-- ============================================================
+UPDATE public.profiles p
+SET
+  nickname = v.nickname,
+  avatar_url = v.avatar_url,
+  bio = v.bio,
+  city = v.city,
+  following_count = v.following_count,
+  applying_count = v.applying_count,
+  adopted_count = v.adopted_count,
+  updated_at = NOW()
+FROM (
+  SELECT u.id, ROW_NUMBER() OVER (ORDER BY u.created_at ASC) AS rn
+  FROM auth.users u
+  LIMIT 4
+) tu
+JOIN (
+  VALUES
+    (1, '喵星观察员-安安', 'https://picsum.photos/seed/profile1/200/200', '擅长幼猫照护与行为引导，周末常做救助志愿服务。', '上海市', 26, 3, 1),
+    (2, '遛狗达人-阿杰', 'https://picsum.photos/seed/profile2/200/200', '每日遛狗两次，偏好中大型犬，愿意长期回访。', '杭州市', 18, 2, 2),
+    (3, '新手家长-小雨', 'https://picsum.photos/seed/profile3/200/200', '第一次领养前持续学习中，已完成新人养宠课程。', '南京市', 9, 1, 0),
+    (4, '救助站值班员-木子', 'https://picsum.photos/seed/profile4/200/200', '负责站内医疗登记与物资盘点，欢迎同城协作。', '苏州市', 33, 4, 3)
+) AS v(rn, nickname, avatar_url, bio, city, following_count, applying_count, adopted_count)
+  ON v.rn = tu.rn
+WHERE p.id = tu.id
+  AND (p.nickname = '宠物爱好者' OR p.nickname = '' OR p.nickname IS NULL);
+
+-- ============================================================
+-- 11. adoption_applications 更多测试申请
+-- ============================================================
+INSERT INTO public.adoption_applications (
+  user_id, pet_id, full_name, age, occupation, housing_type, living_status, has_experience, message, status
+)
+SELECT
+  u.id,
+  pet_id,
+  full_name,
+  age,
+  occupation,
+  housing_type,
+  living_status,
+  has_experience,
+  message,
+  status
+FROM (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1) u
+CROSS JOIN (
+  VALUES
+    ('barnaby', '赵一鸣', '31', '产品经理', '自有住房', '与伴侣同住', TRUE, '有稳定作息和固定遛狗时间，希望领养巴纳比。', 'pending'),
+    ('misty', '林可可', '26', '插画师', '租房（可养宠）', '独居', TRUE, '家里已有完善猫爬架和隔离空间，愿意定期回访。', 'approved'),
+    ('loki', '周明', '29', '测试工程师', '自有住房', '与父母同住', FALSE, '刚开始学习养宠，但家庭支持且有时间投入。', 'pending')
+) AS s(pet_id, full_name, age, occupation, housing_type, living_status, has_experience, message, status)
+WHERE EXISTS (SELECT 1 FROM public.pets p WHERE p.id = s.pet_id)
+  AND NOT EXISTS (
+    SELECT 1 FROM public.adoption_applications a
+    WHERE a.user_id = u.id
+      AND a.pet_id = s.pet_id
+  );
+
+-- ============================================================
+-- 12. conversations + chat_messages 扩充交互聊天样本
+-- ============================================================
+INSERT INTO public.conversations (
+  user_id, other_user_name, other_user_avatar, last_message, last_message_time, unread_count, is_system
+)
+SELECT
+  u.id,
+  s.other_user_name,
+  s.other_user_avatar,
+  s.last_message,
+  NOW() - s.last_message_offset,
+  s.unread_count,
+  FALSE
+FROM (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1) u
+CROSS JOIN (
+  VALUES
+    ('王护士', 'https://picsum.photos/seed/chat1/120/120', '今晚已帮你确认疫苗记录，明天可安排见面。', INTERVAL '35 minutes', 2),
+    ('陈志愿者', 'https://picsum.photos/seed/chat2/120/120', '我可以周六陪同家访，时间你来定。', INTERVAL '2 hours', 1),
+    ('领养顾问小夏', 'https://picsum.photos/seed/chat3/120/120', '你的资料很完整，进入最终审核阶段。', INTERVAL '1 day 3 hours', 0),
+    ('系统通知', '', '你有一条新的领养进度提醒。', INTERVAL '20 minutes', 1)
+) AS s(other_user_name, other_user_avatar, last_message, last_message_offset, unread_count)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.conversations c
+  WHERE c.user_id = u.id
+    AND c.other_user_name = s.other_user_name
+);
+
+INSERT INTO public.chat_messages (conversation_id, content, is_self)
+SELECT c.id, m.content, m.is_self
+FROM public.conversations c
+JOIN (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1) u ON u.id = c.user_id
+JOIN (
+  VALUES
+    ('王护士', '你好，我想确认一下巴纳比近期体检情况。', TRUE),
+    ('王护士', '好的，最近一次体检在上周，指标都正常。', FALSE),
+    ('王护士', '今晚已帮你确认疫苗记录，明天可安排见面。', FALSE),
+
+    ('陈志愿者', '周末家访需要准备哪些材料？', TRUE),
+    ('陈志愿者', '身份证明和居住证明即可，我会提前一天提醒你。', FALSE),
+    ('陈志愿者', '我可以周六陪同家访，时间你来定。', FALSE),
+
+    ('领养顾问小夏', '我已提交了补充说明，请帮忙查看。', TRUE),
+    ('领养顾问小夏', '收到，资料齐全，正在走最终复核。', FALSE),
+    ('领养顾问小夏', '你的资料很完整，进入最终审核阶段。', FALSE),
+
+    ('系统通知', '你有一条新的领养进度提醒。', FALSE),
+    ('系统通知', '点击「领养进度」可查看下一步任务。', FALSE)
+) AS m(other_user_name, content, is_self)
+  ON m.other_user_name = c.other_user_name
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.chat_messages x
+  WHERE x.conversation_id = c.id
+    AND x.content = m.content
+);
 
 -- ============================================================
 -- 说明

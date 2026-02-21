@@ -27,6 +27,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import ThemeSettings from './pages/ThemeSettings';
 import RecycleBin from './pages/RecycleBin';
 import PublishPet from './pages/PublishPet';
+import PublishAdoptRequest from './pages/PublishAdoptRequest';
 import AdoptionProgress from './pages/AdoptionProgress';
 import LostAlerts from './pages/LostAlerts';
 import PublishLostAlert from './pages/PublishLostAlert';
@@ -34,6 +35,16 @@ import LostAlertDetail from './pages/LostAlertDetail';
 import RescueBoard from './pages/RescueBoard';
 import RescueTaskDetail from './pages/RescueTaskDetail';
 import PetHealthDiary from './pages/PetHealthDiary';
+import Points from './pages/Points';
+import PointsTasks from './pages/PointsTasks';
+import PointsRank from './pages/PointsRank';
+import PointsDonate from './pages/PointsDonate';
+import RedeemAdoptionPriority from './pages/RedeemAdoptionPriority';
+import RedeemHealthReport from './pages/RedeemHealthReport';
+import RedeemLuckyDraw from './pages/RedeemLuckyDraw';
+import RedeemHospitalCheckup from './pages/RedeemHospitalCheckup';
+import RedeemCommunityPass from './pages/RedeemCommunityPass';
+import RedeemMerchPack from './pages/RedeemMerchPack';
 
 const ProtectedRoute: React.FC<{ element: React.ReactElement }> = ({ element }) => {
   const { user, loading } = useAuth();
@@ -79,6 +90,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/recycle-bin" element={<ProtectedRoute element={<RecycleBin />} />} />
       <Route path="/publish-pet" element={<ProtectedRoute element={<PublishPet />} />} />
+      <Route path="/publish-adopt-request" element={<ProtectedRoute element={<PublishAdoptRequest />} />} />
       <Route path="/adoption-progress" element={<ProtectedRoute element={<AdoptionProgress />} />} />
       <Route path="/lost-alerts" element={<LostAlerts />} />
       <Route path="/lost-alerts/publish" element={<ProtectedRoute element={<PublishLostAlert />} />} />
@@ -86,6 +98,16 @@ const AppRoutes: React.FC = () => {
       <Route path="/rescue-board" element={<ProtectedRoute element={<RescueBoard />} />} />
       <Route path="/rescue-board/:id" element={<ProtectedRoute element={<RescueTaskDetail />} />} />
       <Route path="/pet-health/:petId" element={<ProtectedRoute element={<PetHealthDiary />} />} />
+      <Route path="/points" element={<ProtectedRoute element={<Points />} />} />
+      <Route path="/points/tasks" element={<ProtectedRoute element={<PointsTasks />} />} />
+      <Route path="/points/rank" element={<ProtectedRoute element={<PointsRank />} />} />
+      <Route path="/points/donate/:partnerKey" element={<ProtectedRoute element={<PointsDonate />} />} />
+      <Route path="/points/adoption-priority" element={<ProtectedRoute element={<RedeemAdoptionPriority />} />} />
+      <Route path="/points/health-report" element={<ProtectedRoute element={<RedeemHealthReport />} />} />
+      <Route path="/points/lucky-draw" element={<ProtectedRoute element={<RedeemLuckyDraw />} />} />
+      <Route path="/points/hospital-checkup" element={<ProtectedRoute element={<RedeemHospitalCheckup />} />} />
+      <Route path="/points/community-pass" element={<ProtectedRoute element={<RedeemCommunityPass />} />} />
+      <Route path="/points/merch-pack" element={<ProtectedRoute element={<RedeemMerchPack />} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

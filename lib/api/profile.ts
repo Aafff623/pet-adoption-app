@@ -74,6 +74,7 @@ export const fetchProfile = async (userId: string): Promise<UserProfile | null> 
     city: data.city ?? '',
     province: data.province ?? '',
     cityName: data.city_name ?? '',
+    points: data.points ?? 0,
     followingCount: data.following_count,
     applyingCount: data.applying_count,
     adoptedCount: data.adopted_count,

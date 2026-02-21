@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -39,8 +39,10 @@ const FILTERS: Array<{ id: 'all' | RescueTaskStatus; label: string }> = [
 
 const RescueBoard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const activityAnchorRef = useRef<HTMLDivElement>(null);
   const [tasks, setTasks] = useState<RescueTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
@@ -88,6 +90,16 @@ const RescueBoard: React.FC = () => {
   useEffect(() => {
     void load(undefined);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const shouldScroll = params.get('from') === 'play-center' || params.get('anchor') === 'activity-zone';
+    if (!shouldScroll) return;
+    const timer = window.setTimeout(() => {
+      activityAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [location.search]);
 
   const displayedTasks = useMemo(() => {
     const now = Date.now();
@@ -232,7 +244,7 @@ const RescueBoard: React.FC = () => {
         </div>
       </header>
 
-      <main className="px-6 space-y-3">
+      <main ref={activityAnchorRef} className="px-6 space-y-3">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(key => (

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 type TabType = 'login' | 'register';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, register } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('login');
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,9 @@ const Login: React.FC = () => {
       setErrorMsg('邮箱或密码错误，请重试');
       return;
     }
-    navigate('/', { replace: true });
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') ?? '/';
+    navigate(redirect, { replace: true });
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -53,7 +56,9 @@ const Login: React.FC = () => {
       setErrorMsg('注册失败，该邮箱可能已被注册');
       return;
     }
-    navigate('/', { replace: true });
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') ?? '/';
+    navigate(redirect, { replace: true });
   };
 
   return (

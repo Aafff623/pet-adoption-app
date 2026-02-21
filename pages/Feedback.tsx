@@ -42,30 +42,30 @@ const Feedback: React.FC = () => {
   };
 
   return (
-    <div className="bg-background-light min-h-screen flex flex-col fade-in">
-      <header className="px-4 py-4 flex items-center bg-white shadow-sm sticky top-0 z-50">
-        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors" aria-label="返回">
-          <span className="material-icons-round text-2xl text-gray-700">arrow_back</span>
+    <div className="bg-background-light dark:bg-zinc-900 min-h-screen flex flex-col fade-in">
+      <header className="px-4 py-4 flex items-center bg-white dark:bg-zinc-800 shadow-sm sticky top-0 z-50 border-b border-gray-100 dark:border-zinc-700">
+        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors" aria-label="返回">
+          <span className="material-icons-round text-2xl text-gray-700 dark:text-zinc-300">arrow_back</span>
         </button>
-        <h1 className="text-lg font-bold text-gray-900 ml-2">意见反馈</h1>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-zinc-100 ml-2">意见反馈</h1>
       </header>
 
       <main className="p-6 space-y-6">
         <form onSubmit={handleSubmit}>
           {errorMsg && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl text-sm text-red-600 dark:text-red-300">
               {errorMsg}
             </div>
           )}
 
           <div className="space-y-2 mb-6">
-            <label className="text-sm font-medium text-gray-700 ml-1" htmlFor="feedback-description">
+            <label className="text-sm font-medium text-gray-700 dark:text-zinc-300 ml-1" htmlFor="feedback-description">
               问题描述<span className="text-red-500">*</span>
             </label>
             <textarea
               id="feedback-description"
-              className={`w-full h-40 bg-white rounded-2xl p-4 border focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none ${
-                description.trim().length === 0 ? 'border-red-300' : 'border-gray-200'
+              className={`w-full h-40 bg-white dark:bg-zinc-800 rounded-2xl p-4 border text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none ${
+                description.trim().length === 0 ? 'border-red-300 dark:border-red-700' : 'border-gray-200 dark:border-zinc-700'
               }`}
               placeholder="请详细描述您遇到的问题或建议..."
               value={description}
@@ -74,18 +74,18 @@ const Feedback: React.FC = () => {
               aria-required="true"
             />
             {description.trim().length === 0 && (
-              <p className="text-red-500 text-xs mt-1 ml-1" aria-live="polite">问题描述不能为空</p>
+              <p className="text-red-500 dark:text-red-300 text-xs mt-1 ml-1" aria-live="polite">问题描述不能为空</p>
             )}
           </div>
 
           <div className="space-y-2 mb-8">
-            <label className="text-sm font-medium text-gray-700 ml-1" htmlFor="feedback-contact">
+            <label className="text-sm font-medium text-gray-700 dark:text-zinc-300 ml-1" htmlFor="feedback-contact">
               联系方式 (选填)
             </label>
             <input
               id="feedback-contact"
               type="text"
-              className="w-full bg-white rounded-xl p-4 border border-gray-200 focus:ring-2 focus:ring-primary/50 focus:border-transparent"
+              className="w-full bg-white dark:bg-zinc-800 rounded-xl p-4 border border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-500 focus:ring-2 focus:ring-primary/50 focus:border-transparent"
               placeholder="手机号/邮箱"
               value={contact}
               onChange={e => setContact(e.target.value)}
