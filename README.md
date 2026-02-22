@@ -463,471 +463,78 @@ Supabase（Auth + DB + Storage + RLS）
 
 ---
 
-## 🎯 工程化体系
+## ⚙️ 项目生态配置规范
 
-项目已集成**完整的开发工程化体系**，支持 AI Agent（Cursor / GitHub Copilot / Claude）高效协作。
+PetConnect 项目已配置完整的 AI Agent 开发环境，支持 Cursor、GitHub Copilot、Claude 等工具协同开发。
 
-### ⚡ 核心工作流（5 步完成一个功能）
+### 📁 核心配置文件
 
-> **一句话**：从输入功能名到 git push，整个流程自动化、无感知！
-
-```bash
-# 1️⃣ 初始化项目（首次）
-npm run bootstrap:ai
-
-# 2️⃣ 输入功能主题 + 需求
-npm run task:decompose
-# 输入: "AI 宠物匹配" + 需求细节
-# 输出: 自动生成 3-5 个 subtasks，一个主文件夹
-
-# 3️⃣ Agent 开发各 subtask（types → api → ui → pages）
-# Cursor IDE 自动加载 .ai/rules/ 规范
-# npm run build 验证每步
-
-# 4️⃣ 验收完后让 AI 标记完成
-npm run task:mark-done -- tasks/2026-02-21-feature/subtasks/01-types --auto-check
-# 默认不打钩，只有明确 --auto-check 才会标记✓
-
-# 5️⃣ 所有 subtask 完成后分批提交
-npm run task:commit-batch -- tasks/2026-02-21-feature
-# 自动拆分 4 个 commit：types → api → components → pages
-# git push
-```
-
-**✨ 亮点**：
-- 🤖 **LLM 智能拆解** — 不需要手动创建文件夹，AI 自动分析需求
-- 📁 **层级清晰** — 一个功能一个主文件夹 + N 个 subtasks
-- ✅ **进度可视** — `npm run task:list` 显示完成% + 更新时间
-- 🔍 **规范自动生效** — Cursor 打开时自动加载 .ai/rules/
-- 📦 **分批提交** — 按功能阶段（types→api→ui→pages）自动分组
-- 🛡️ **验收保护** — 默认不打钩，人工审核后才标记完成
-
-### 快速初始化
-
-```bash
-# 首次打开项目
-npm run bootstrap:ai
-
-# 检查系统健康状态
-npm run doctor:ai
-
-# 如需刷新规则（编改 .ai/rules/* 后）
-npm run sync:ai
-```
-
-### 如何复制 boilerplate 到新项目
-
-如果你想在新仓库/新项目中使用本套 boilerplate，可按以下简短步骤操作：
-
-- 方法 A（本地复制，推荐）：
-
-```bash
-# 进入目标项目根目录（或新建目录）
-cd /path/to/my-new-project
-# 从当前仓库复制 boilerplate 下的内容到目标项目
-cp -r ../petconnect-app/boilerplate/.ai ./
-cp -r ../petconnect-app/boilerplate/scripts ./
-cp -r ../petconnect-app/boilerplate/docs ./
-cp -r ../petconnect-app/boilerplate/tasks ./
-cp ../petconnect-app/boilerplate/package.json ./ || true
-```
-
-- 方法 B（作为模板仓库使用）：
-
-```bash
-# 克隆 boilerplate 仓库（假设已推到远端独立仓库）
-git clone https://github.com/yourname/boilerplate.git my-new-project
-cd my-new-project
-```
-
-复制后，进入目标项目，安装依赖并运行初始化命令：
-
-```bash
-npm install
-# 填写 .ai/rules/ 中的 TODO 内容，按需调整 package.json
-npm run bootstrap:ai
-npm run task:list
-```
-
-这会把核心规则、脚本与任务模板引入你的新项目，之后即可按常规流程开始开发。
-
-
-### 工程化文档
-
-| 文档 | 用途 |
+| 路径 | 用途 |
 | --- | --- |
-| [docs/AI-TASK-SYSTEM.md](docs/AI-TASK-SYSTEM.md) | 🤖 **LLM 智能拆解系统**（推荐首先阅读！） |
-| [boilerplate/docs/BOILERPLATE.md](boilerplate/docs/BOILERPLATE.md) | 📦 **新项目初始化模版**（为下一个项目做准备） |
-| [docs/WORKFLOW.md](docs/WORKFLOW.md) | 完整工作流程与 Agent 执行指南（深度） |
-| [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) | 快速参考卡（可打印） |
-| [.ai/rules/](/.ai/rules/) | 5 个分层规则（global / frontend / backend / db / security） |
-| `.cursor/rules/PROJECT_RULES.md` | Cursor IDE 自动加载的统一规则（自动生成） |
+| `.ai/manifest.json` | 规则集与目标工具配置（Cursor/Copilot） |
+| `.ai/rules/*.md` | 分层代码规范（全局/前端/后端/数据库/安全） |
+| `.ai/skills/` | 12 个场景化技能配置（AI/部署/Supabase/README 等） |
+| `.ai/mcp/servers.json` | MCP 服务端点配置 |
+| `.cursor/rules/` | Cursor IDE 自动加载的规则文件 |
 
-### 任务管理 - 核心命令
-
-#### 🤖 方式 A：AI 自动拆解（推荐）
+### 🎯 初始化命令
 
 ```bash
-# 交互式创建任务（LLM 智能分析）
-npm run task:decompose
-
-# 输入示例：
-# 🎯 功能主题: AI 宠物匹配推荐
-# 📝 具体需求:
-# > 基于用户偏好和宠物特征计算兼容度
-# > UI 展示匹配分数 + AI 推荐理由
-# > 后台定期重新计算
-# >
-# ✅ 自动生成：tasks/2026-02-21-adoption-match/
-#   ├── parent-spec.md
-#   └── subtasks/
-#      ├── 01-types-definitions/
-#      ├── 02-api-implementation/
-#      ├── 03-ui-components/
-#      ├── 04-pages-integration/
-#      └── 05-testing-validation/
+npm run bootstrap:ai   # 首次打开项目时运行，自动加载规则和技能
+npm run doctor:ai      # 检查系统健康状态
+npm run sync:ai       # 刷新规则配置
 ```
 
-#### 📋 方式 B：从 phase 文档创建
+### 🔧 可用工程化命令
 
-```bash
-# 创建单个任务（基于现有 phase 文档）
-npm run task:new -- docs/demand/petconnect-innovation/phase-2-ai-adoption-match.md adoption-match-ui
+| 命令 | 用途 |
+| --- | --- |
+| `npm run task:decompose` | AI 智能拆解需求为 subtasks |
+| `npm run task:list` | 查看任务进度 |
+| `npm run task:mark-done` | 标记任务完成 |
+| `npm run task:commit-batch` | 按功能阶段分批提交代码 |
 
-# 输出：tasks/2026-02-21-phase2-adoption-match-ui/
-#   ├── spec.md       # 验收标准 & API/DB 声明
-#   └── done.md       # 完成记录模板
-```
-
-#### 🔍 查看待做任务
-
-```bash
-npm run task:list
-
-# 输出：
-# 📋 待做任务列表
-# 1. 🟡 2026-02-21-adoption-match
-#    📂 tasks/2026-02-21-adoption-match
-#    📊 进度: [████████░░░░░░░░░░░░] 40%
-#    ⏰ 最后更新: 2h 前
-```
-
-#### ✅ 标记任务完成
-
-```bash
-# 完成一个 subtask 后
-npm run task:mark-done -- tasks/2026-02-21-adoption-match/subtasks/01-types-definitions
-
-# 可选：允许 AI 自动打钩
-npm run task:mark-done -- tasks/.../01-types --auto-check
-
-# 自动：验证 npm run build 通过，生成 done.md
-```
-
-#### 📦 分批提交代码
-
-```bash
-# 所有 subtasks 完成后，按功能阶段分批提交
-npm run task:commit-batch -- tasks/2026-02-21-adoption-match
-
-# 输出 4 个 commit：
-# ✅ feat(types): 类型定义
-# ✅ feat(api): API 实现
-# ✅ feat(components): UI 组件
-# ✅ feat(pages): 页面集成
-```
+详细规范见 [docs/WORKFLOW.md](docs/WORKFLOW.md)。
 
 ---
 
-## 💡 实战示例：开发"AI 领养匹配"功能
+## 💡 工具切换提示词
 
-这个示例展示 AI Agent（如 Cursor）从需求到部署的完整流程。
+当你在不同 AI 开发工具间切换时，可使用以下模板快速同步上下文：
 
-### Step 1: 初始化 & 理解需求
-
-```bash
-# Agent 首次打开项目
-npm install
-npm run bootstrap:ai  # ← 规则、技能自动加载
-
-# 查看当前任务
-cat tasks/2026-02-21-phase2-adoption-match-ui/spec.md
-```
-
-**spec.md 内容示例**：
-```markdown
-## Goal
-- 基于 AI 为领养人推荐最匹配的宠物
-
-## Acceptance Criteria
-- [ ] 用户进入首页看到 "为你推荐" 卡片
-- [ ] 点击卡片显示匹配分数 + AI 推荐理由
-- [ ] 调用 LLM 生成匹配评分（1-100）
-- [ ] 非登录用户显示友好提示
-
-## API/DB Touch
-- API 变更：lib/api/adoptionMatch.ts（新增）
-- DB 变更：adoption_match_scores 表（已存在）
-- 权限变更：RLS policy（用户只能看自己的推荐）
-
-## Linked Demand Doc
-- docs/demand/petconnect-innovation/phase-2-ai-adoption-match.md
-```
-
-### Step 2: 制定 Plan（大任务时）
-
-Agent 读取 spec.md，自动推导执行计划：
+### 继续当前任务
 
 ```markdown
-# Plan
-## Part A: API 层（1-2h）
-- [ ] 在 types.ts 增加 AdoptionMatch interface
-- [ ] 新建 lib/api/adoptionMatch.ts
-  - calculateMatchScore(petId, userId): Promise<{score, reason}>
-  - 调用 generateMatchAnalysis() 从 LLM 获取评分
-- [ ] 测试 API 返回格式正确
-
-## Part B: UI 层（1-2h）
-- [ ] 修改 pages/Home.tsx
-  - 新增 "为你推荐" 卡片区
-  - 调用 adoptionMatch API
-- [ ] 新建 components/AdoptionMatchCard.tsx
-  - 显示得分、推荐理由、CTA 按钮
-  - 处理加载态和错误态
-
-## Part C: 验收（30min）
-- [ ] npm run build 通过
-- [ ] E2E 验证：首页能看到卡片
-- [ ] Preview 链接测试
-```
-
-### Step 3: 分阶段实施 & 提交代码
-
-#### Part A: API 层
-
-```bash
-# 拆解为小步骤，每次 3-5 个文件改动
-
-# Step A1: 更新类型定义
-# 修改 types.ts
-# ↓ 立即 commit
-git add types.ts
-git commit -m "feat(types/adoption): add AdoptionMatch interface"
-
-# Step A2: 新建 API 模块
-# 新建 lib/api/adoptionMatch.ts
-# 调用 lib/api/llm.ts 获取 AI 评分
-# ↓ 立即 commit  
-git add lib/api/adoptionMatch.ts
-git commit -m "feat(api/adoption): implement calculateMatchScore"
-
-# Step A3: 验证
-npm run build  # ← 必须通过
-```
-
-#### Part B: UI 层
-
-```bash
-# 等待 Part A merge 后再开始
-
-# Step B1: 新建展示组件
-# 新建 components/AdoptionMatchCard.tsx
-git add components/AdoptionMatchCard.tsx
-git commit -m "feat(components): add AdoptionMatchCard component"
-
-# Step B2: 集成到首页
-# 修改 pages/Home.tsx
-# 导入 AdoptionMatchCard，添加到合适位置
-git add pages/Home.tsx
-git commit -m "feat(pages/home): add AI adoption recommendations section"
-
-# Step B3: 验证
-npm run build
-```
-
-### Step 4: 提交规范
-
-**Conventional Commits 格式**：
-
-```
-feat(scope): subject
-
-Optional body explaining why.
-
-Closes #issue-number
-```
-
-**示例**：
-```
-feat(api/adoption): implement AI-powered match scoring
-- Calculate compatibility between adopter and pet
-- Call Gemini API for intelligent analysis
-- Cache results for 24 hours
-
-feat(components): add match score display card
-- Show score (1-100) with color-coded feedback
-- Display AI-generated recommendations
-- Handle loading and error states
-
-feat(pages/home): integrate adoption recommendations
-- Add "Tailored for You" section
-- Fetch recommendations on page load
-- Non-authenticated users see prompt to login
-```
-
-### Step 5: 验收与标记
-
-```bash
-# 对照 spec.md 的 Acceptance Criteria 逐项核验
-✅ 用户进入首页看到 "为你推荐" 卡片
-✅ 点击卡片显示匹配分数 + AI 推荐理由
-✅ 调用 LLM 生成匹配评分（1-100）
-✅ 非登录用户显示友好提示
-
-# 填写任务完成记录
-cat > tasks/2026-02-21-phase2-adoption-match-ui/done.md << 'EOF'
-# Done
-
-## What changed
-- API：新增 calculateMatchScore() 实现 AI 匹配评分
-- 组件：新增 AdoptionMatchCard 展示推荐
-- 页面：Home 增加 "为你推荐" 卡片区
-
-## Files touched
-- types.ts
-- lib/api/adoptionMatch.ts
-- components/AdoptionMatchCard.tsx
-- pages/Home.tsx
-
-## Test checklist
-- [x] npm run build 无错误
-- [x] 本地功能验证（登录→首页→看到卡片）
-- [x] AI 调用正常（console logs 确认）
-- [x] 非登录用户提示正确
-
-## Build result
-✅ 无警告，gzip size 增加 3.2kB（可接受）
-
-## Preview/Prod links
-- Preview: https://petconnect-feat.vercel.app
-- Production: （待合并后）
-EOF
-```
-
----
-
-## 🔄 工具切换提示词
-
-当你在 **Cursor / VS Code / GitHub Copilot / Claude 等工具间切换**时，告诉 AI 当前上下文，避免重复理解。
-
-### 模板 1: 继续当前任务（从一个工具切换到另一个）
-
-```markdown
-我在用 [当前工具] 开发 PetConnect 的一个功能。
+我在用 [当前工具] 开发 PetConnect。
 
 **任务**：tasks/2026-02-21-[phaseX]-[功能]/spec.md
 
 **当前进度**：
 - [x] 已完成：xxx
-- [ ] 进行中：yyy（已提交 commit abc123）
+- [ ] 进行中：yyy
 - [ ] 待做：zzz
 
 **项目规范**：
-- 所有规则见 .ai/rules/ 和 .cursor/rules/PROJECT_RULES.md
-- Conventional Commits: feat(api/adoption): description
-- 禁止直连 supabase（改用 lib/api/*.ts）
-- TypeScript 无 any，Tailwind 无内联 style
+- 规则：.ai/rules/ 和 .cursor/rules/PROJECT_RULES.md
+- 提交：feat(scope): description
+- 禁止直连 supabase（用 lib/api/*.ts）
 
-**下一步**：请继续帮我完成 [yyy 待做项]
+**下一步**：请继续完成 [待做项]
 ```
 
-**示例**：
-```markdown
-我在用 Cursor 开发 PetConnect 的 AI 领养匹配功能。
-
-**任务**：tasks/2026-02-21-phase2-adoption-match-ui/spec.md
-
-**当前进度**：
-- [x] 已完成：types.ts 新增 AdoptionMatch interface
-- [x] 已完成：lib/api/adoptionMatch.ts 实现 calculateMatchScore
-- [ ] 进行中：components/AdoptionMatchCard.tsx（已新建，待补充 UI 逻辑）
-- [ ] 待做：pages/Home.tsx 集成卡片
-
-**关键约束**：
-- 调用 LLM 必须通过 lib/api/llm.ts（已支持 Gemini/DeepSeek/豆包）
-- RLS policy 已在 adoption_match_scores 表配置
-- Tailwind 主色调：dark:bg-zinc-800 / text-primary
-
-**下一步**：请继续帮我完成 AdoptionMatchCard 的 UI 逻辑（显示分数、理由、CTA）
-```
-
-### 模板 2: 从 Cursor 切换到 Claude（需要 AI 深度重构或方案设计）
+### 切换到 GitHub PR
 
 ```markdown
-项目背景：PetConnect 宠物领养平台，基于 React 18 + TypeScript + Supabase + TailwindCSS
+**任务**：tasks/2026-02-21-xxx/
 
-**工程化体系**：
-- 项目规范：docs/WORKFLOW.md（478行）和 docs/QUICK_REFERENCE.md
-- 规则文件：.ai/rules/ 中 5 个分层规则（global/frontend/backend/db/security）
-- 任务系统：tasks/YYYY-MM-DD-phaseX-*/{spec.md, done.md}
-- npm 命令：npm run bootstrap:ai / sync:ai / build / doctor:ai
+**PR 标题**：feat(xxx): description
 
-**当前任务**：tasks/2026-02-21-phase3-trusted-adoption-milestones/spec.md
+**变更**：1. types.ts 新增 xxx  2. lib/api/xxx.ts 实现 xxx  3. pages/xxx.tsx 集成
 
-**需求**：实现"可信领养流程"——用户可查看领养申请的完整进度（申请→初审→家访→试养→通过）
+**验收**：- [x] npm run build 通过 - [x] spec.md 验收完成
 
-**设计问题**：
-1. 如何在前端展示多阶段流程的状态变更？依赖 DB 的状态字段吗？
-2. adoption_milestones 表结构如何设计（考虑 RLS）？
-3. 是否需要 Edge Function 自动推进流程状态？
-
-**期望**：请给我方案设计（架构图 + DB Schema + API 接口清单 + 前端交互流程）
+**预览链接**：https://xxx.vercel.app
 ```
-
-### 模板 3: 从开发工具切换到 GitHub 提交 PR
-
-```markdown
-**任务**：tasks/2026-02-21-phase2-adoption-match-ui/
-
-**PR 标题**：feat(adoption-match): implement AI-powered pet-person matching
-
-**变更清单**：
-1. types.ts: 新增 AdoptionMatch interface
-2. lib/api/adoptionMatch.ts: calculateMatchScore() 通过 LLM 评分
-3. components/AdoptionMatchCard.tsx: 新组件展示匹配卡片
-4. pages/Home.tsx: 集成推荐卡片到首页
-
-**验收检查**：
-- [x] npm run build 通过
-- [x] 本地功能验证（已截图）
-- [x] 对标 spec.md 4 条 Acceptance Criteria
-- [x] 提交规范遵循 Conventional Commits
-- [x] 无硬编码 key、无 console.log、无 any 类型
-
-**预览链接**：https://petconnect-feat-adoption.vercel.app
-
-**关联文档**：
-- 需求：docs/demand/petconnect-innovation/phase-2-ai-adoption-match.md
-- 完成记录：tasks/2026-02-21-phase2-adoption-match-ui/done.md
-```
-
-### 模板 4: 快速同步规则（有人更新了 .ai/rules/）
-
-```markdown
-项目规范已更新。
-
-**运行**：
-```bash
-npm run bootstrap:ai   # 自动刷新所有规则、技能、MCP 配置
-npm run doctor:ai      # 验证系统状态
-```
-
-**新增约束**：[简述改动]
-
-**对我当前任务的影响**：[如无影响，可跳过]
-```
-
----
 
 ---
 
